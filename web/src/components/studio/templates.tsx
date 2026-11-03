@@ -422,18 +422,20 @@ export function MatchupCard({ m, teams, size, handle }: { m: StudioMatchup; team
         <div style={{ fontSize: 30 * u, fontWeight: 600 }}>{t.nickname}</div>
         <div style={{ fontSize: 26 * u, color: C.ink2 }}>
           {s.w}-{s.l}
-          {s.rest === 0 ? ", no rest" : ""}
+          {s.rest === 0 ? ", back-to-back" : ""}
         </div>
       </div>
     </div>
   );
   const missingBlock = (code: string, s: typeof a, right: boolean) => (
     <div style={{ display: "grid", gap: 6 * u, textAlign: right ? "right" : "left" }}>
-      <span style={{ fontSize: 22 * u, color: C.muted }}>Scoring out tonight</span>
+      <span style={{ fontSize: 22 * u, color: C.muted }}>Scoring listed out</span>
       <span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 60 * u, lineHeight: 1 }}>
-        {s.missing_ppg.toFixed(1)} <span style={{ fontFamily: SANS, fontSize: 22 * u, color: C.ink2, fontWeight: 500 }}>PPG</span>
+        {m.report ? s.missing_ppg.toFixed(1) : "–"} <span style={{ fontFamily: SANS, fontSize: 22 * u, color: C.ink2, fontWeight: 500 }}>PPG</span>
       </span>
-      <span style={{ fontSize: 22 * u, color: C.ink2 }}>{s.missing.length ? s.missing.slice(0, 2).map((x) => `${x.name} ${x.ppg?.toFixed(1)}`).join(", ") : `${code} nobody key listed out`}</span>
+      <span style={{ fontSize: 22 * u, color: C.ink2 }}>
+        {!m.report ? "No injury report yet" : s.missing.length ? s.missing.slice(0, 2).map((x) => `${x.name} ${x.ppg?.toFixed(1)}`).join(", ") : `${code} nobody key listed out`}
+      </span>
     </div>
   );
   const wp = m.away_wp != null && m.home_wp != null;

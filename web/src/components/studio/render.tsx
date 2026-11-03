@@ -13,7 +13,8 @@ export function resolveSelection(data: StudioData, sel: StudioSelection): Studio
   return {
     ...sel,
     player: data.players.find((p) => p.key === sel.player)?.key ?? data.players[0]?.key,
-    matchup: data.matchups.find((m) => m.code === sel.matchup)?.code ?? data.matchups[0]?.code,
+    // by game id; a game code (older links) picks that code's first game
+    matchup: (data.matchups.find((m) => m.key === sel.matchup) ?? data.matchups.find((m) => m.code === sel.matchup) ?? data.matchups[0])?.key,
     recap: data.recaps.find((r) => r.code === sel.recap)?.code ?? data.recaps[0]?.code,
     highlight: sel.highlight?.length ? sel.highlight : defaultHighlight(data),
   };
@@ -22,7 +23,7 @@ export function resolveSelection(data: StudioData, sel: StudioSelection): Studio
 export function emptyReason(data: StudioData, template: StudioSelection["template"]): string | null {
   if (template === "player" && !data.players.length) return "No box scores from last night for this date.";
   if (template === "recap" && !data.recaps.length) return "No finished games from last night for this date.";
-  if (template === "matchup" && !data.matchups.length) return "No games tonight for this date.";
+  if (template === "matchup" && !data.matchups.length) return "No games in the next 3 days for this date.";
   if (template === "league" && !data.league.length) return "No team stats yet this season.";
   return null;
 }
@@ -34,7 +35,7 @@ export function TemplateFrame({ data, sel }: { data: StudioData; sel: StudioSele
     return line ? <PlayerCard line={line} teams={data.teams} size={s.size} handle={s.handle} /> : null;
   }
   if (s.template === "matchup") {
-    const m = data.matchups.find((x) => x.code === s.matchup);
+    const m = data.matchups.find((x) => x.key === s.matchup);
     return m ? <MatchupCard m={m} teams={data.teams} size={s.size} handle={s.handle} /> : null;
   }
   if (s.template === "recap") {

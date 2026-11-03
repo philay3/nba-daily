@@ -5,8 +5,8 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import * as t from "@/db/schema";
 import { teamAccent } from "@/lib/colors";
-import { getToday, played } from "@/lib/data";
-import { addDays, timeET } from "@/lib/format";
+import { dayMode, getToday, played, type TodayData } from "@/lib/data";
+import { addDays, tipTime } from "@/lib/format";
 import type { StudioData, StudioMatchup, StudioPlayerLine, StudioRecap, StudioTeam } from "@/lib/studio-types";
 
 /** Everything the studio templates need for one date, as plain JSON. */
@@ -91,55 +91,14 @@ export async function getStudioData(day: string): Promise<StudioData> {
     };
   });
 
-  const pidx = new Map(d.players.map((p) => [`${p.team_code}|${p.name}`, p]));
-  const matchups: StudioMatchup[] = d.tonight.map((g) => {
-    const side = (code: string) => {
-      const ts = d.teamSeason.get(code);
-      const out = d.injuries
-        .filter((i) => i.team_code === code && (i.status === "Out" || i.status === "Doubtful"))
-        .map((i) => ({ name: i.player_name, ppg: pidx.get(`${code}|${i.player_name}`)?.ppg ?? null, status: i.status }))
-        .filter((x) => x.ppg !== null)
-        .sort((a, b) => (b.ppg ?? 0) - (a.ppg ?? 0));
-      return {
-        w: ts?.w ?? 0,
-        l: ts?.l ?? 0,
-        net: ts?.net ?? null,
-        net_rk: ts?.net_rk ?? null,
-        ortg: ts?.ortg ?? null,
-        ortg_rk: ts?.ortg_rk ?? null,
-        drtg: ts?.drtg ?? null,
-        drtg_rk: ts?.drtg_rk ?? null,
-        pace: ts?.pace ?? null,
-        pace_rk: ts?.pace_rk ?? null,
-        l5_net: ts?.l5_net ?? null,
-        l5_net_rk: ts?.l5_net_rk ?? null,
-        efg: ts?.efg ?? null,
-        efg_rk: ts?.efg_rk ?? null,
-        opp_efg: ts?.opp_efg ?? null,
-        opp_efg_rk: ts?.opp_efg_rk ?? null,
-        rest: code === g.away_code ? g.away_rest : g.home_rest,
-        missing_ppg: d.missing.get(code)?.ppg ?? 0,
-        missing: out.slice(0, 3),
-      };
-    };
-    return {
-      code: g.code,
-      game_id: g.id,
-      date: g.game_date,
-      time_et: timeET(g.tip),
-      tv: g.tv ?? "",
-      away: g.away_code,
-      home: g.home_code,
-      line: g.odds?.line ?? null,
-      total: g.odds?.total ?? null,
-      away_wp: g.odds?.away_wp ?? null,
-      home_wp: g.odds?.home_wp ?? null,
-      watch: g.pick?.watch ?? null,
-      tag: g.pick?.tag ?? "",
-      sides: { [g.away_code]: side(g.away_code), [g.home_code]: side(g.home_code) },
-    };
-  });
-  matchups.sort((a, b) => (a.watch ?? 99) - (b.watch ?? 99));
+  // matchups for every game in the next 3 days that the newest run's look-ahead covers
+  const days = [d];
+  for (const i of [1, 2]) {
+    const next = addDays(day, i);
+    if (dayMode(next, d.latest) === "preview") days.push(await getToday(next));
+  }
+  const matchups: StudioMatchup[] = days.flatMap((dd, i) => matchupsOf(dd, i));
+  matchups.sort((a, b) => a.days_ahead - b.days_ahead || (a.watch ?? 99) - (b.watch ?? 99));
 
   const gaps = d.lastNight.length
     ? await getDb().select().from(t.game_gaps).where(inArray(t.game_gaps.game_id, d.lastNight.map((g) => g.id)))
@@ -192,3 +151,65 @@ export async function getStudioData(day: string): Promise<StudioData> {
 
   return { day, yday: addDays(day, -1), season: d.season, teams, players, matchups, recaps, league };
 }
+
+/** The matchup cards of one day's games (postponed games left out). */
+function matchupsOf(d: TodayData, daysAhead: number): StudioMatchup[] {
+  const pidx = new Map(d.players.map((p) => [`${p.team_code}|${p.name}`, p]));
+  return d.tonight
+    .filter((g) => !OFF.has(g.status))
+    .map((g) => {
+      const report = g.preview ? g.preview.injury_report : d.injuries.length ? d.day : null;
+      const side = (code: string) => {
+        const ts = d.teamSeason.get(code);
+        const out = report
+          ? d.injuries
+              .filter((i) => i.team_code === code && (i.status === "Out" || i.status === "Doubtful"))
+              .map((i) => ({ name: i.player_name, ppg: pidx.get(`${code}|${i.player_name}`)?.ppg ?? null, status: i.status }))
+              .filter((x) => x.ppg !== null)
+              .sort((a, b) => (b.ppg ?? 0) - (a.ppg ?? 0))
+          : [];
+        return {
+          w: ts?.w ?? 0,
+          l: ts?.l ?? 0,
+          net: ts?.net ?? null,
+          net_rk: ts?.net_rk ?? null,
+          ortg: ts?.ortg ?? null,
+          ortg_rk: ts?.ortg_rk ?? null,
+          drtg: ts?.drtg ?? null,
+          drtg_rk: ts?.drtg_rk ?? null,
+          pace: ts?.pace ?? null,
+          pace_rk: ts?.pace_rk ?? null,
+          l5_net: ts?.l5_net ?? null,
+          l5_net_rk: ts?.l5_net_rk ?? null,
+          efg: ts?.efg ?? null,
+          efg_rk: ts?.efg_rk ?? null,
+          opp_efg: ts?.opp_efg ?? null,
+          opp_efg_rk: ts?.opp_efg_rk ?? null,
+          rest: code === g.away_code ? g.away_rest : g.home_rest,
+          missing_ppg: d.missing.get(code)?.ppg ?? 0,
+          missing: out.slice(0, 3),
+        };
+      };
+      return {
+        key: String(g.id),
+        code: g.code,
+        days_ahead: daysAhead,
+        report,
+        game_id: g.id,
+        date: g.game_date,
+        time_et: tipTime(g),
+        tv: g.tv ?? "",
+        away: g.away_code,
+        home: g.home_code,
+        line: g.odds?.line ?? null,
+        total: g.odds?.total ?? null,
+        away_wp: g.odds?.away_wp ?? null,
+        home_wp: g.odds?.home_wp ?? null,
+        watch: g.pick?.watch ?? null,
+        tag: g.pick?.tag ?? "",
+        sides: { [g.away_code]: side(g.away_code), [g.home_code]: side(g.home_code) },
+      };
+    });
+}
+
+const OFF = new Set(["STATUS_POSTPONED", "STATUS_CANCELED", "STATUS_CANCELLED", "STATUS_SUSPENDED"]);
