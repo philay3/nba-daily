@@ -35,11 +35,12 @@ Ours: `ATL BKN BOS CHA CHI CLE DAL DEN DET GSW HOU IND LAC LAL MEM MIA MIL MIN N
 
 ## What is computed
 
-All of this is a port of the original engine (`docs/reference/nba_build.py`); the parity tests pin it to that engine's output.
+All of this is a port of the original engine (`docs/reference/nba_build.py`); the parity tests pin it to that engine's output, except for the deliberate fixes listed in DECISIONS.md (so far one: points off turnovers).
 
 - Possessions per team-game: `FGA - OREB + TOV + 0.44 x FTA`, averaged for the two teams so both share one number. TOV is ESPN's total turnovers (player plus team).
 - Offensive, defensive and net rating: points per 100 possessions. Pace: possessions per 48 minutes, where a game's minutes are `48 + 5 x overtimes`.
 - Four factors on both ends: effective FG % `(FGM + 0.5 x 3PM) / FGA`, turnover % `TOV / (FGA + 0.44 x FTA + TOV)`, offensive rebound % `OREB / (OREB + opponent DREB)`, free throw rate `FTM / FGA`, plus the opponent versions (defensive rebound % on defense).
+- Points off turnovers: the points a team scored off the opponent's turnovers. ESPN's team stat `turnoverPoints` (`turnover_points` in the mirror) is labeled "Points Conceded Off Turnovers", so each team takes the opponent's figure, and its own figure is the points it allowed (`opp_pts_off_to_pg`). The original engine read it the other way round; see DECISIONS.md.
 - League ranks for 39 stats, 1 = best, ties share the better rank. Pace 1 = fastest. Volume stats (attempts) have no "better" side.
 - Team-vs-team gaps for every game: the road-minus-home difference of each stat divided by the standard deviation of that difference across every game this season. Major is 1.5 or more, Notable 1.0 or more.
 - Player deltas for every game: points, rebounds, assists and minutes against his averages from games before that date, with the engine's flags (points +/- 8 with 12+ minutes, rebounds +/- 5, assists +/- 4, three or more extra threes, minutes +/- 10, a season high with 15+ points, plus-minus of 15 either way, double- and triple-doubles, first game of the season).

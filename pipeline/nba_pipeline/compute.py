@@ -10,6 +10,10 @@ engine's golden JSON. What is new only widens the scope, reusing the same code p
 - as-of filtering: only games before `today` count, so a past `--date` rebuilds that morning;
 - empty-season safety (opening night has no completed games).
 
+One fix on purpose (golden files regenerated, see docs/DECISIONS.md): the engine read ESPN's turnoverPoints as
+points scored, but ESPN means points conceded. `pts_off_to` is now the opponent's figure, so it is the points this
+team scored off the opponent's turnovers, and `o_pts_off_to` is the points it allowed off its own.
+
 The result is a `Build` of normalized rows whose keys are the database columns.
 """
 from __future__ import annotations
@@ -204,7 +208,7 @@ def compute(pb: pd.DataFrame, tb: pd.DataFrame, sc: pd.DataFrame, today: dt.date
             "assists", "steals", "blocks", "total_turnovers", "fouls", "fast_break_points", "points_in_paint",
             "turnover_points", "largest_lead", "lead_changes"]].copy()
     T.columns = ["game_id", "date", "team", "ha", "pts", "win", "fgm", "fga", "tpm", "tpa", "ftm", "fta", "oreb", "dreb",
-                 "reb", "ast", "stl", "blk", "tov", "pf", "fb", "paint", "pts_off_to", "largest_lead", "lead_changes"]
+                 "reb", "ast", "stl", "blk", "tov", "pf", "fb", "paint", "to_pts_conceded", "largest_lead", "lead_changes"]
     T["game_id"] = T.game_id.astype(int)
     for c in T.columns:
         if c not in ("game_id", "date", "team", "ha", "win"):
@@ -213,6 +217,9 @@ def compute(pb: pd.DataFrame, tb: pd.DataFrame, sc: pd.DataFrame, today: dt.date
     O = T.drop(columns=["date", "ha", "win"]).rename(columns=lambda c: c if c == "game_id" else "o_" + c)
     G = T.merge(O, on="game_id")
     G = G[G.team != G.o_team].copy()
+    # ESPN's turnoverPoints is "Points Conceded Off Turnovers": what the opponent scored off this team's turnovers.
+    # So a team's points off turnovers are the opponent's figure, and the points it allowed off turnovers are its own.
+    G["pts_off_to"], G["o_pts_off_to"] = G.o_to_pts_conceded, G.to_pts_conceded
     G["poss_own"] = G.fga - G.oreb + G.tov + 0.44 * G.fta
     G["poss_opp"] = G.o_fga - G.o_oreb + G.o_tov + 0.44 * G.o_fta
     G["poss"] = (G.poss_own + G.poss_opp) / 2

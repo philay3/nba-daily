@@ -92,6 +92,12 @@ Short entries: the decision, why, and the trade-off. Newest at the bottom of eac
 ### Daily schedule: two cron entries, idempotent run
 - Why: GitHub cron is UTC and the season spans both EDT and EST. 13:45 and 14:45 UTC give 9:45 a.m. New York time in either; the extra run is a free refresh.
 
+### Points off turnovers are the opponent's ESPN figure (golden files regenerated)
+- Why: ESPN's team stat `turnoverPoints` is labeled "Points Conceded Off Turnovers": the points the opponent scored off this team's turnovers. The original engine stored it as points the team scored, so a team that threw the ball away looked good. `compute.py` now swaps it per game: `pts_off_to` is the opponent's figure (points scored off the opponent's turnovers), and the team's own figure is the points it allowed (`opp_pts_off_to_pg`). The mirror rows and PATCH files keep ESPN's number as is.
+- Check: on 2026-11-02 Charlotte committed 27 turnovers against Detroit. ESPN gives Charlotte 37 and Detroit 9, so we now show Detroit 37 and Charlotte 9. Without trusting any label, the stored figure now follows the other team's turnovers (r = 0.74 over the fixture season), not the team's own (r = 0.19). `tests/test_points_off_turnovers.py` holds these checks. Before and after, on the game page and the recap graphic: `docs/screenshots/fix-points-off-turnovers.png`.
+- Golden files: regenerated with `cd pipeline && python3 -I tests/regen_golden.py`. Only these fields changed: `pts_off_to` in `box_teams`, the four points off turnovers rows in `box_compare` (the two sides swap and the edge flips; z, gap and level stay the same), and `pts_off_to_pg`, `opp_pts_off_to_pg` and their ranks in `team_season`. The other seven files and `digest.txt` are byte for byte the same.
+- Trade-off: the golden files are now the original engine's output plus this fix, and `docs/reference/nba_build.py` keeps the old reading for the record. Stored data needs no migration: every run upserts all of the season's `team_games` rows and rebuilds `team_season` and `game_gaps`, so the next run corrects them.
+
 ## Web
 
 ### Pages render per request; the default date follows the data

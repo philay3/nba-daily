@@ -69,7 +69,7 @@ Run Python that reads downloaded data with `python3 -I` in shared or sandboxed e
 
 ## Things not to do
 
-- Do not change formulas in `compute.py` to make a test pass; the golden files in `pipeline/fixtures/golden_2026-11-02` are the reference output of the original engine.
+- Do not change formulas in `compute.py` to make a test pass; the golden files in `pipeline/fixtures/golden_2026-11-02` are the reference output of the original engine, plus the deliberate fixes in `docs/DECISIONS.md`. After a deliberate change, `cd pipeline && python3 -I tests/regen_golden.py` rewrites them and lists every field that changed.
 - Do not edit generated migrations by hand; change `schema.ts` and run `npm --prefix web run db:generate`.
 - Do not call ESPN or the mirror from tests. Tests use `pipeline/fixtures` only.
 - Do not use NBA or team logos, or player photos (trademark and copyright). Use team codes, names and colors.
