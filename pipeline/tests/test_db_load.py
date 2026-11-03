@@ -15,6 +15,8 @@ pytestmark = pytest.mark.db
 EXPECTED_COUNTS = {
     "teams": 30, "players": 461, "games": 1200, "team_games": 184, "player_games": 2509, "team_season": 30,
     "player_season": 442, "game_gaps": 2300, "player_game_deltas": 2072, "odds": 15, "injuries": 100, "editorial": 28,
+    "shots": 16255, "shot_games": 92, "league_shot_zones": 7, "team_shot_zones": 420, "player_shot_zones": 2996,
+    "game_shot_zones": 1288,
 }
 
 
@@ -85,6 +87,63 @@ def test_injuries_link_to_players_and_games(conn):
     # every injured player the digest lists as "no games for X this season" is the one without a match
     unmatched = (GOLDEN / "digest.txt").read_text().count("(no games for ")
     assert (r["matched"], unmatched) == (57, 43)
+
+
+def test_shots_match_box_scores(conn):
+    rows = conn.execute("""
+        SELECT tg.game_id, tg.team_code, tg.fga, tg.fgm, tg.tpm, tg.pts - tg.ftm AS fg_pts,
+               count(s.seq) AS shots, count(*) FILTER (WHERE s.made) AS made,
+               count(*) FILTER (WHERE s.made AND s.three) AS threes, coalesce(sum(s.points), 0) AS points
+        FROM team_games tg LEFT JOIN shots s USING (game_id, team_code)
+        GROUP BY tg.game_id, tg.team_code, tg.fga, tg.fgm, tg.tpm, tg.pts, tg.ftm""").fetchall()
+    assert len(rows) == 184
+    assert all((r["made"], r["threes"], r["points"]) == (r["fgm"], r["tpm"], r["fg_pts"]) for r in rows)
+    assert sum(r["fga"] == r["shots"] for r in rows) == 174 and max(abs(r["fga"] - r["shots"]) for r in rows) == 1
+
+
+def test_shot_zone_tables_agree(conn):
+    # the "all" row of each table is the sum of its zones, and the stored game zones match the shots
+    bad = conn.execute("""
+        SELECT z.game_id, z.team_code FROM game_shot_zones z
+        JOIN (SELECT game_id, team_code, zone, count(*) AS fga, count(*) FILTER (WHERE made) AS fgm, sum(points) AS pts
+              FROM shots GROUP BY game_id, team_code, zone) s USING (game_id, team_code, zone)
+        WHERE (z.fga, z.fgm, z.pts) <> (s.fga, s.fgm, s.pts)""").fetchall()
+    assert bad == []
+    for table, keys in (("league_shot_zones", "season"), ("team_shot_zones", "season, team_code, side"),
+                        ("player_shot_zones", "season, player_id"), ("game_shot_zones", "game_id, team_code")):
+        bad = conn.execute(f"""
+            SELECT {keys} FROM {table} GROUP BY {keys}
+            HAVING sum(fga) FILTER (WHERE zone = 'all') <> sum(fga) FILTER (WHERE zone <> 'all')
+                OR sum(pts) FILTER (WHERE zone = 'all') <> sum(pts) FILTER (WHERE zone <> 'all')""").fetchall()
+        assert bad == [], table
+
+
+def test_shot_loader_rewrites_only_changed_games(seeded_db):
+    import datetime as dt
+
+    from helpers import HOOPR
+
+    from nba_pipeline.compute import compute
+    from nba_pipeline.load import load_shots
+    from nba_pipeline.shots import build_shots
+    from nba_pipeline.sources.hoopr import read_season, read_shots, season_paths, shots_path
+
+    pb, tb, sc = read_season(season_paths(2027, HOOPR))
+    build = compute(pb, tb, sc, dt.date(2026, 11, 2), 2027)
+    raw = read_shots(shots_path(2027, HOOPR))
+    gid = 401909906
+    first = raw[(raw.game_id == gid) & ~raw.type_text.str.startswith("Free Throw")].index[0]
+    changed = build_shots(raw.drop(index=first), build)  # ESPN drops one shot of one game
+    with psycopg.connect(seeded_db, row_factory=dict_row) as c:
+        with c.transaction(force_rollback=True):
+            assert load_shots(c, build_shots(raw, build), 2027)["shot_games"] == 0  # same data: nothing to rewrite
+            counts = load_shots(c, changed, 2027)
+            assert counts["shot_games"] == 1 and counts["shots"] == 184
+            assert one(c, "SELECT count(*) AS n FROM shots WHERE game_id = %s", (gid,))["n"] == 184
+            assert one(c, "SELECT count(*) AS n FROM shots")["n"] == 16254
+            # no shot file: the shot tables stay as they are
+            assert load_shots(c, build_shots(None, build), 2027) == {}
+            assert one(c, "SELECT count(*) AS n FROM shots")["n"] == 16254
 
 
 def test_official_seeds_applied(conn):
