@@ -53,6 +53,11 @@ export function zoneCounts(shots: ShotLike[]): Record<ZoneKey, Counts> {
   return out;
 }
 
+/** FG% at one decimal, halves rounded up (null with no attempts). */
+export function fgPct(c: Counts): number | null {
+  return c.fga ? Math.round((1000 * c.fgm) / c.fga) / 10 : null;
+}
+
 /** Q1 to Q4, then OT, 2OT ... */
 export function periodLabel(p: number): string {
   return p <= 4 ? `Q${p}` : p === 5 ? "OT" : `${p - 4}OT`;

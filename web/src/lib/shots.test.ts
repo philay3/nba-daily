@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { COURT, hexbin, hexPath, hexScale, periodLabel, shotTitle, type ShotLike, zoneClass, zoneCounts, ZONES } from "./shots.ts";
+import { COURT, fgPct, hexbin, hexPath, hexScale, periodLabel, shotTitle, type ShotLike, zoneClass, zoneCounts, ZONES } from "./shots.ts";
 
 const shot = (x: number, y: number, made: boolean, zone = "midrange"): ShotLike => ({ x, y, made, zone });
 
@@ -14,6 +14,14 @@ test("zone counts add up to all shots", () => {
   assert.deepEqual(c.paint, { fga: 0, fgm: 0 });
   assert.deepEqual(c.all, { fga: 4, fgm: 2 }); // an unknown zone still counts as a shot
   assert.equal(ZONES.reduce((n, z) => n + c[z].fga, 0), 3);
+});
+
+test("FG% at one decimal", () => {
+  assert.equal(fgPct({ fgm: 2, fga: 3 }), 66.7);
+  assert.equal(fgPct({ fgm: 1, fga: 8 }), 12.5);
+  assert.equal(fgPct({ fgm: 45, fga: 105 }), 42.9);
+  assert.equal(fgPct({ fgm: 1, fga: 16 }), 6.3); // 6.25: halves round up
+  assert.equal(fgPct({ fgm: 0, fga: 0 }), null);
 });
 
 // every whole-foot spot on the half court, like ESPN's coordinates

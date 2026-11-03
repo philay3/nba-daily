@@ -6,8 +6,10 @@
 import { Columns } from "@/components/charts/Bars";
 import { OffDefScatter, type ScatterTeam } from "@/components/charts/OffDefScatter";
 import { QuarterFlow } from "@/components/charts/QuarterFlow";
-import { longDate, monthDay, ordinal, signed } from "@/lib/format";
-import type { SizeKey, StudioMatchup, StudioPlayerLine, StudioRecap, StudioTeam } from "@/lib/studio-types";
+import { ShotChart } from "@/components/charts/ShotChart";
+import { f1, longDate, monthDay, ordinal, signed } from "@/lib/format";
+import { COURT, ZONE_LABEL, type ZoneKey } from "@/lib/shots";
+import type { SizeKey, StudioMatchup, StudioPlayerLine, StudioRecap, StudioShotChart, StudioTeam } from "@/lib/studio-types";
 import { SIZES } from "@/lib/studio-types";
 
 const C = {
@@ -74,12 +76,15 @@ function Frame({
   bands,
   children,
   stamp,
+  texture = true,
 }: {
   size: SizeKey;
   handle: string;
   bands: StudioTeam[];
   children: React.ReactNode;
   stamp: string;
+  /** the faint court drawn behind every frame; off when the graphic is a court itself */
+  texture?: boolean;
 }) {
   const { w, h } = SIZES[size];
   const landscape = w > h;
@@ -99,7 +104,7 @@ function Frame({
         fontVariantNumeric: "lining-nums",
       }}
     >
-      <CourtLines w={w} h={h} landscape={landscape} />
+      {texture ? <CourtLines w={w} h={h} landscape={landscape} /> : null}
       <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: Math.round(16 * u), display: "flex" }}>
         {bands.map((t, i) => (
           <div key={i} style={{ flex: 1, display: "grid", gridTemplateRows: "1fr auto" }}>
@@ -723,6 +728,162 @@ export function GameRecap({ r, teams, size, handle }: { r: StudioRecap; teams: R
         {gaps}
         {story ? meta : null}
         {leaders}
+      </div>
+    </Frame>
+  );
+}
+
+/* ------------------------------------------------------------------ 5. shot chart */
+
+export function ShotChartCard({ c, teams, size, handle }: { c: StudioShotChart; teams: Record<string, StudioTeam>; size: SizeKey; handle: string }) {
+  const { w, h } = SIZES[size];
+  const landscape = w > h;
+  const story = size === "story";
+  const u = landscape ? h / 1080 : w / 1080;
+  const pad = 72 * u;
+  const team = teams[c.team] ?? MISSING_TEAM;
+  const opp = teams[c.opp] ?? MISSING_TEAM;
+  const player = c.kind === "player";
+  const parts = c.name.split(" ");
+  const first = player && parts.length > 1 ? parts[0] : player ? "" : team.name.replace(new RegExp(`\\s*${team.nickname}$`), "");
+  const last = player ? (parts.length > 1 ? parts.slice(1).join(" ") : c.name) : team.nickname || c.team;
+  const nameWidth = landscape ? 760 * u : w - pad * 2;
+  const lastSize = fit(last, nameWidth, (story ? 150 : landscape ? 124 : 116) * u, 0.45);
+  const score = `${Math.max(c.team_score, c.opp_score)}-${Math.min(c.team_score, c.opp_score)}`;
+  const depth = story ? 44 : 36; // feet from the baseline: 36 stops 7 ft past the top of the arc
+  const chartW = landscape ? 960 * u : story ? w - pad * 2 : 780 * u;
+  const hidden = c.shots.filter((s) => s.y - COURT.baseline > depth).length;
+  const zones = c.zones.filter((z) => z.zone !== "backcourt");
+  const back = c.zones.find((z) => z.zone === "backcourt");
+
+  const head = (
+    <div style={{ display: "grid", gap: 10 * u }}>
+      <Label u={u}>Shot chart</Label>
+      <div style={{ fontSize: 26 * u, color: C.ink2 }}>
+        {longDate(c.date)}, {c.home ? "vs" : "at"} {opp.nickname || c.opp}. {c.team} {c.won ? "beat" : "lost to"} {c.opp} {score}.
+      </div>
+    </div>
+  );
+  const name = (
+    <div style={{ display: "flex", alignItems: "stretch", gap: 24 * u }}>
+      <div style={{ width: 14 * u, background: team.accent, borderRadius: 3 * u }} />
+      <div style={{ display: "grid" }}>
+        {first ? <div style={{ fontSize: 40 * u, fontWeight: 600, color: C.ink2, lineHeight: 1.1 }}>{first}</div> : null}
+        <div style={{ fontFamily: DISPLAY, fontWeight: 850, fontSize: lastSize, lineHeight: 0.88, letterSpacing: "0.005em" }}>{last}</div>
+      </div>
+    </div>
+  );
+  const line = (
+    <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 54 * u, lineHeight: 1 }}>
+      {c.fgm} of {c.fga}
+      <span style={{ fontFamily: SANS, fontWeight: 500, fontSize: 26 * u, color: C.ink2, marginLeft: 12 * u }}>
+        from the field, {c.tpm} of {c.tpa} from three{player ? `, ${c.pts} points` : ""}
+      </span>
+    </div>
+  );
+  const legend = (
+    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 28 * u, fontSize: 22 * u, color: C.ink2 }}>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 10 * u }}>
+        <span style={{ width: 18 * u, height: 18 * u, borderRadius: 999, background: team.accent }} />
+        Made
+      </span>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 10 * u }}>
+        <svg width={18 * u} height={18 * u} viewBox="0 0 12 12" aria-hidden>
+          <path d="M2,2L10,10M2,10L10,2" stroke={C.muted} strokeWidth="2" strokeLinecap="round" />
+        </svg>
+        Missed
+      </span>
+      <span style={{ color: C.muted }}>
+        Basket at the top{hidden ? `. Not shown: ${hidden} from beyond ${Math.round(depth + COURT.baseline)} ft` : ""}
+      </span>
+    </div>
+  );
+  const chart = (
+    <div style={{ width: chartW }}>
+      <ShotChart
+        view="dots"
+        shots={c.shots}
+        width={chartW}
+        depth={depth}
+        madeColor={team.accent}
+        missColor={C.muted}
+        lineColor="#36537a"
+        surface={C.surface}
+        label={`${c.name} shots, ${longDate(c.date)}`}
+      />
+    </div>
+  );
+  // zones: made-attempted last night, with the season and the league from there
+  const strip = (
+    <div style={{ display: "grid", gridTemplateColumns: `repeat(${zones.length}, 1fr)`, gap: 14 * u, borderTop: `2px solid ${C.line}`, paddingTop: 20 * u }}>
+      {zones.map((z) => (
+        <div key={z.zone} style={{ display: "grid", gap: 4 * u, alignContent: "start" }}>
+          <span style={{ fontSize: 21 * u, color: C.muted, lineHeight: 1.15 }}>{ZONE_LABEL[z.zone as ZoneKey]}</span>
+          <span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 54 * u, lineHeight: 1 }}>
+            {z.fgm}-{z.fga}
+          </span>
+          <span style={{ fontSize: 21 * u, color: C.ink2 }}>League {f1(z.lg_fg_pct)}%</span>
+        </div>
+      ))}
+    </div>
+  );
+  const cols = "2.1fr 1fr 1fr 1fr 1fr";
+  const table = (
+    <div style={{ display: "grid", gap: 10 * u }}>
+      <div style={{ display: "grid", gridTemplateColumns: cols, gap: 12 * u, fontSize: 21 * u, color: C.muted, borderBottom: `2px solid ${C.line}`, paddingBottom: 10 * u }}>
+        <span>Zone</span>
+        <span style={{ textAlign: "right" }}>Made</span>
+        <span style={{ textAlign: "right" }}>FG%</span>
+        <span style={{ textAlign: "right" }}>Season</span>
+        <span style={{ textAlign: "right" }}>League</span>
+      </div>
+      {zones.map((z) => (
+        <div key={z.zone} style={{ display: "grid", gridTemplateColumns: cols, gap: 12 * u, alignItems: "baseline" }}>
+          <span style={{ fontSize: 26 * u, fontWeight: 600, whiteSpace: "nowrap" }}>{ZONE_LABEL[z.zone as ZoneKey]}</span>
+          <span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 44 * u, textAlign: "right", lineHeight: 1 }}>
+            {z.fgm}-{z.fga}
+          </span>
+          <span style={{ fontSize: 27 * u, textAlign: "right" }}>{f1(z.fg_pct)}</span>
+          <span style={{ fontSize: 27 * u, textAlign: "right", color: C.ink2 }}>{f1(z.season_fg_pct)}</span>
+          <span style={{ fontSize: 27 * u, textAlign: "right", color: C.ink2 }}>{f1(z.lg_fg_pct)}</span>
+        </div>
+      ))}
+      <div style={{ fontSize: 20 * u, color: C.muted }}>
+        FG% by zone last night, {player ? "his" : "their"} season so far, and the league this season.{back && back.fga ? ` Plus ${back.fgm}-${back.fga} from the backcourt.` : ""}
+      </div>
+    </div>
+  );
+
+  const stamp = `${monthDay(c.date)} ${c.team} ${c.home ? "vs" : "at"} ${c.opp}`;
+  if (landscape) {
+    return (
+      <Frame size={size} handle={handle} bands={[team]} stamp={stamp} texture={false}>
+        <div style={{ position: "absolute", inset: `${48 * u}px ${pad}px ${28 * u}px`, display: "grid", gridTemplateColumns: `1fr ${chartW}px`, gap: 56 * u }}>
+          <div style={{ display: "grid", alignContent: "space-between", gap: 22 * u }}>
+            {head}
+            {name}
+            {line}
+            {table}
+          </div>
+          <div style={{ display: "grid", alignContent: "center", justifySelf: "center", gap: 16 * u }}>
+            {chart}
+            {legend}
+          </div>
+        </div>
+      </Frame>
+    );
+  }
+  return (
+    <Frame size={size} handle={handle} bands={[team]} stamp={stamp} texture={false}>
+      <div style={{ position: "absolute", inset: `${56 * u}px ${pad}px ${32 * u}px`, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 20 * u }}>
+        {head}
+        {name}
+        {line}
+        <div style={{ display: "grid", gap: 14 * u, width: chartW, alignSelf: "center" }}>
+          {chart}
+          {legend}
+        </div>
+        {story ? table : strip}
       </div>
     </Frame>
   );

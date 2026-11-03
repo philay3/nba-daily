@@ -7,7 +7,8 @@ import * as t from "@/db/schema";
 import { teamAccent } from "@/lib/colors";
 import { dayMode, getToday, played, type TodayData } from "@/lib/data";
 import { addDays, tipTime } from "@/lib/format";
-import type { StudioData, StudioMatchup, StudioPlayerLine, StudioRecap, StudioTeam } from "@/lib/studio-types";
+import { fgPct, ZONES, zoneCounts } from "@/lib/shots";
+import type { StudioData, StudioMatchup, StudioPlayerLine, StudioRecap, StudioShotChart, StudioTeam } from "@/lib/studio-types";
 
 /** Everything the studio templates need for one date, as plain JSON. */
 export async function getStudioData(day: string): Promise<StudioData> {
@@ -149,7 +150,101 @@ export async function getStudioData(day: string): Promise<StudioData> {
       accent: teams[r.team_code]?.accent ?? "#8293ab",
     }));
 
-  return { day, yday: addDays(day, -1), season: d.season, teams, players, matchups, recaps, league };
+  const shotCharts = await getShotCharts(d.lastNight.map((g) => g.id), d.season, lines, d.results);
+
+  return { day, yday: addDays(day, -1), season: d.season, teams, players, matchups, recaps, league, shotCharts };
+}
+
+/** Last night's shots for every player who took one and for both teams of each game, top scorers first. */
+async function getShotCharts(
+  ids: number[],
+  season: number | null,
+  lines: TodayData["box"],
+  results: TodayData["results"],
+): Promise<StudioShotChart[]> {
+  if (!ids.length || !season) return [];
+  const db = getDb();
+  const [shotRows, gameZones, leagueZones, teamZones, playerZones] = await Promise.all([
+    db
+      .select({ game_id: t.shots.game_id, player_id: t.shots.player_id, team_code: t.shots.team_code, x: t.shots.x, y: t.shots.y, made: t.shots.made, zone: t.shots.zone })
+      .from(t.shots)
+      .where(inArray(t.shots.game_id, ids))
+      .orderBy(asc(t.shots.game_id), asc(t.shots.seq)),
+    db.select().from(t.game_shot_zones).where(inArray(t.game_shot_zones.game_id, ids)),
+    db.select().from(t.league_shot_zones).where(eq(t.league_shot_zones.season, season)),
+    db.select().from(t.team_shot_zones).where(and(eq(t.team_shot_zones.season, season), eq(t.team_shot_zones.side, "offense"))),
+    db
+      .select({ player_id: t.player_shot_zones.player_id, zone: t.player_shot_zones.zone, fg_pct: t.player_shot_zones.fg_pct })
+      .from(t.player_shot_zones)
+      .where(and(eq(t.player_shot_zones.season, season), inArray(t.player_shot_zones.player_id, [...new Set(lines.map((b) => b.player_id))]))),
+  ]);
+  const lg = new Map(leagueZones.map((r) => [r.zone, r.fg_pct]));
+  const teamSeason = new Map(teamZones.map((r) => [`${r.team_code}|${r.zone}`, r.fg_pct]));
+  const playerSeason = new Map(playerZones.map((r) => [`${r.player_id}|${r.zone}`, r.fg_pct]));
+  const point = (r: (typeof shotRows)[number]) => ({ x: r.x, y: r.y, made: r.made, zone: r.zone });
+
+  const charts: StudioShotChart[] = [];
+  for (const b of lines) {
+    const mine = shotRows.filter((r) => r.game_id === b.game_id && r.player_id === b.player_id);
+    const r = results.find((g) => g.id === b.game_id);
+    if (!mine.length || !r) continue;
+    const counts = zoneCounts(mine);
+    const home = b.home_away === "home";
+    charts.push({
+      key: `p-${b.game_id}-${b.player_id}`,
+      kind: "player",
+      game_id: b.game_id,
+      date: b.game_date,
+      name: b.name,
+      team: b.team_code,
+      opp: b.opp_code,
+      home,
+      won: r.winner_code === b.team_code,
+      team_score: (home ? r.home_score : r.away_score) ?? 0,
+      opp_score: (home ? r.away_score : r.home_score) ?? 0,
+      fgm: b.fgm ?? 0,
+      fga: b.fga ?? 0,
+      tpm: b.tpm ?? 0,
+      tpa: b.tpa ?? 0,
+      pts: b.pts ?? 0,
+      shots: mine.map(point),
+      zones: ZONES.map((z) => ({ zone: z, ...counts[z], fg_pct: fgPct(counts[z]), season_fg_pct: playerSeason.get(`${b.player_id}|${z}`) ?? null, lg_fg_pct: lg.get(z) ?? null })),
+    });
+  }
+  for (const r of results) {
+    for (const [code, tg, opp] of [
+      [r.away_code, r.away_tg, r.home_code],
+      [r.home_code, r.home_tg, r.away_code],
+    ] as const) {
+      const mine = shotRows.filter((s) => s.game_id === r.id && s.team_code === code);
+      if (!mine.length || !tg) continue;
+      const zones = new Map(gameZones.filter((z) => z.game_id === r.id && z.team_code === code).map((z) => [z.zone, z]));
+      charts.push({
+        key: `t-${r.id}-${code}`,
+        kind: "team",
+        game_id: r.id,
+        date: r.game_date,
+        name: code,
+        team: code,
+        opp,
+        home: code === r.home_code,
+        won: r.winner_code === code,
+        team_score: tg.pts,
+        opp_score: tg.opp_pts,
+        fgm: tg.fgm,
+        fga: tg.fga,
+        tpm: tg.tpm,
+        tpa: tg.tpa,
+        pts: tg.pts,
+        shots: mine.map(point),
+        zones: ZONES.map((z) => {
+          const row = zones.get(z);
+          return { zone: z, fgm: row?.fgm ?? 0, fga: row?.fga ?? 0, fg_pct: row?.fg_pct ?? null, season_fg_pct: teamSeason.get(`${code}|${z}`) ?? null, lg_fg_pct: lg.get(z) ?? null };
+        }),
+      });
+    }
+  }
+  return charts;
 }
 
 /** The matchup cards of one day's games (postponed games left out). */
