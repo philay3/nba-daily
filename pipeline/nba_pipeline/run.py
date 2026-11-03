@@ -1,4 +1,4 @@
-"""One pipeline run: sources -> compute -> inputs (odds, injuries, editorial, seeds) -> checks -> load."""
+"""One pipeline run: sources -> compute -> inputs (odds, injuries, editorial, seeds) -> checks -> shots -> load."""
 from __future__ import annotations
 
 import datetime as dt
@@ -13,9 +13,10 @@ from nba_pipeline.config import FIXTURES_DIR, season_for
 from nba_pipeline.digest import render_digest
 from nba_pipeline.editorial import EditorialProvider, FileEditorial, NoopEditorial, editorial_rows
 from nba_pipeline.export import dashboard_files, tables_from_build
+from nba_pipeline.shots import ShotBuild, build_shots
 from nba_pipeline.sources import http_client
 from nba_pipeline.sources.espn import fetch_injuries, fetch_summary, odds_from_summary, parse_injuries
-from nba_pipeline.sources.hoopr import read_season, season_paths
+from nba_pipeline.sources.hoopr import read_season, read_shots, season_paths, shots_path
 from nba_pipeline.sources.inputs import Inputs, read_inputs
 from nba_pipeline.sources.patch import from_patch
 from nba_pipeline.sources.raw import fetch_raw, is_completed, parse_raw
@@ -33,6 +34,7 @@ class RunResult:
     odds: list = field(default_factory=list)
     injuries: list = field(default_factory=list)
     editorial: list = field(default_factory=list)
+    shots: ShotBuild | None = None
     counts: dict = field(default_factory=dict)
     errors: list = field(default_factory=list)
     warnings: list = field(default_factory=list)
@@ -43,7 +45,8 @@ class RunResult:
         return dict(date=self.day.isoformat(), season=self.season, run_id=self.run_id,
                     tonight=meta.get("tonight"), last_night_games=meta.get("last_night_games"),
                     last_night_missing=meta.get("last_night_missing"), missing_games=meta.get("missing_games"),
-                    notes=meta.get("notes"), counts=self.counts, errors=self.errors, warnings=self.warnings)
+                    notes=meta.get("notes"), shots=self.shots.meta if self.shots else None, counts=self.counts,
+                    errors=self.errors, warnings=self.warnings)
 
 
 # ------------------------------------------------------------------ missing games
@@ -170,7 +173,8 @@ def run_day(date: dt.date, season: int | None = None, source_dir: Path | None = 
         if conn is not None:
             from nba_pipeline.load import finish_run, load_build
             with conn.transaction():
-                result.counts = load_build(conn, result.build, result.odds, result.injuries, result.editorial)
+                result.counts = load_build(conn, result.build, result.odds, result.injuries, result.editorial,
+                                           result.shots)
             finish_run(conn, run_id, "error" if result.errors else "ok", result.counts, result.build.meta.get("notes"),
                        result.warnings, result.errors)
     except BaseException as e:
@@ -221,6 +225,14 @@ def _run(result: RunResult, date: dt.date, season: int, source_dir: Path | None,
     result.digest = render_digest(tables, result.files)
     result.errors, result.warnings = run_checks(result.files, inputs.sr_standings,
                                                 editorial_supplied=provider.name != "none")
+    # shots are optional: a missing or unreadable file, or a game without shots, is a warning, and the box scores
+    # load either way (the shot tables keep what they had)
+    try:
+        result.shots = build_shots(read_shots(shots_path(season, source_dir)), build)
+    except Exception as e:  # noqa: BLE001
+        result.shots = ShotBuild(available=False, notes=[f"the shot file could not be read ({type(e).__name__}: {e}), "
+                                                         "so the shot tables were left as they were"])
+    result.warnings += [f"shots: {n}" for n in result.shots.notes]
 
 
 def seed(fixtures: Path = FIXTURES_DIR, migrate_first: bool = True, database_url: str | None = None) -> RunResult:
