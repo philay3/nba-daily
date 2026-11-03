@@ -8,6 +8,7 @@ from psycopg.rows import dict_row
 
 from nba_pipeline.digest import render_digest
 from nba_pipeline.export import dashboard_files, read_tables
+from nba_pipeline.pbp import PREFIX
 from nba_pipeline.run import run_day
 
 
@@ -38,8 +39,10 @@ def test_meta_matches_golden(built):
 
 
 def test_finish_checks_clean(built):
+    """The engine's finish checks. The play-by-play step's own notes (a known gap in ESPN's feed on this day) are
+    checked in test_pbp.py."""
     assert built.errors == []
-    assert built.warnings == []
+    assert [w for w in built.warnings if not w.startswith(PREFIX)] == []
 
 
 @pytest.mark.db

@@ -1,4 +1,5 @@
-"""One pipeline run: sources -> compute -> inputs (odds, injuries, editorial, seeds) -> checks -> shots -> load."""
+"""One pipeline run: sources -> compute -> inputs (odds, injuries, editorial, seeds) -> checks -> shots ->
+play-by-play -> load."""
 from __future__ import annotations
 
 import datetime as dt
@@ -13,11 +14,12 @@ from nba_pipeline.config import FIXTURES_DIR, season_for
 from nba_pipeline.digest import render_digest
 from nba_pipeline.editorial import EditorialProvider, FileEditorial, NoopEditorial, editorial_rows
 from nba_pipeline.export import dashboard_files, tables_from_build
+from nba_pipeline.pbp import PbpBuild, compute_pbp, pbp_checks, read_plays
 from nba_pipeline.previews import check_previews, preview_rows, upcoming_games
 from nba_pipeline.shots import ShotBuild, build_shots
 from nba_pipeline.sources import http_client
 from nba_pipeline.sources.espn import fetch_injuries, fetch_summary, odds_from_summary, parse_injuries
-from nba_pipeline.sources.hoopr import read_season, read_shots, season_paths, shots_path
+from nba_pipeline.sources.hoopr import pbp_path, read_season, read_shots, season_paths, shots_path
 from nba_pipeline.sources.inputs import Inputs, read_inputs
 from nba_pipeline.sources.patch import from_patch
 from nba_pipeline.sources.raw import fetch_raw, is_completed, parse_raw
@@ -41,14 +43,19 @@ class RunResult:
     errors: list = field(default_factory=list)
     warnings: list = field(default_factory=list)
     run_id: int | None = None
+    pbp: PbpBuild | None = None
 
     def summary(self) -> dict:
         meta = self.build.meta if self.build else {}
+        ck = self.pbp.checks if self.pbp else {}
+        pbp = dict(games=ck.get("games"), player_games=ck.get("player_games"),
+                   minutes_off_by_more_than_1=len(ck.get("minutes_off", [])), plus_minus_differs=ck.get("pm_off"),
+                   repaired_team_periods=ck.get("repaired"), not_in_box=len(ck.get("not_in_box", []))) if ck else None
         return dict(date=self.day.isoformat(), season=self.season, run_id=self.run_id,
                     tonight=meta.get("tonight"), last_night_games=meta.get("last_night_games"),
                     last_night_missing=meta.get("last_night_missing"), missing_games=meta.get("missing_games"),
-                    notes=meta.get("notes"), shots=self.shots.meta if self.shots else None, counts=self.counts,
-                    errors=self.errors, warnings=self.warnings)
+                    notes=meta.get("notes"), shots=self.shots.meta if self.shots else None, play_by_play=pbp,
+                    counts=self.counts, errors=self.errors, warnings=self.warnings)
 
 
 # ------------------------------------------------------------------ missing games
@@ -179,7 +186,7 @@ def run_day(date: dt.date, season: int | None = None, source_dir: Path | None = 
             from nba_pipeline.load import finish_run, load_build
             with conn.transaction():
                 result.counts = load_build(conn, result.build, result.odds, result.injuries, result.editorial,
-                                           previews=result.previews, shots=result.shots)
+                                           previews=result.previews, shots=result.shots, pbp=result.pbp)
             finish_run(conn, run_id, "error" if result.errors else "ok", result.counts, result.build.meta.get("notes"),
                        result.warnings, result.errors)
     except BaseException as e:
@@ -247,6 +254,25 @@ def _run(result: RunResult, date: dt.date, season: int, source_dir: Path | None,
         result.shots = ShotBuild(available=False, notes=[f"the shot file could not be read ({type(e).__name__}: {e}), "
                                                          "so the shot tables were left as they were"])
     result.warnings += [f"shots: {n}" for n in result.shots.notes]
+    play_by_play(result, build, season, source_dir)
+
+
+def play_by_play(result: RunResult, build: Build, season: int, source_dir: Path | None) -> None:
+    """Game flow, runs, clutch, lineups and on/off from the season's play-by-play. A separate step: without the file
+    the play-by-play tables keep their last run, and a failure here still lets the box scores load."""
+    path = pbp_path(season, source_dir)
+    if path is None:
+        build.meta["notes"].append("no play-by-play file for this season; the play-by-play tables were left as they were")
+        return
+    try:
+        result.pbp = compute_pbp(read_plays(path), build)
+    except Exception as e:  # noqa: BLE001
+        traceback.print_exc(file=sys.stderr)
+        result.errors.append(f"play-by-play: the step failed: {type(e).__name__}: {e}")
+        return
+    errs, warns = pbp_checks(result.pbp)
+    result.errors += errs
+    result.warnings += warns
 
 
 def seed(fixtures: Path = FIXTURES_DIR, migrate_first: bool = True, database_url: str | None = None) -> RunResult:
