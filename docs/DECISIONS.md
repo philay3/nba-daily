@@ -1,0 +1,40 @@
+# Decisions
+
+Short entries: the decision, why, and the trade-off. Newest at the bottom of each section.
+
+## Stack
+
+### Next.js App Router + TypeScript + React for the web app
+- Why: server components can query Postgres directly, so pages need no API layer; Chops already works in Next/TS.
+- Trade-off: pages render per request (`dynamic = "force-dynamic"`) so `next build` never needs a database. Each visit hits Postgres; fine at this traffic, and data only changes once a day.
+
+### Drizzle ORM + drizzle-kit, not Prisma
+- Why: the schema lives in one TypeScript file (`web/src/db/schema.ts`) and drizzle-kit generates plain SQL migrations (`web/drizzle/*.sql`) that the Python pipeline can read and apply. Prisma's engines download from binaries.prisma.sh, which the build sandbox could not reach, and its generated client adds a binary to every deploy.
+- Trade-off: fewer guard rails than Prisma (no generated client with relation helpers); queries are written with the Drizzle query builder or `sql` templates.
+
+### snake_case everywhere (SQL columns, Drizzle keys, Python, JSON)
+- Why: one vocabulary across the pipeline, the database, the web app and the dashboard JSON (`ortg_rk`, `pm_pg`). The Python side writes plain SQL with the same names the web reads.
+- Trade-off: TypeScript code reads `row.ortg_rk` instead of camelCase. Accepted on purpose.
+
+### postgres.js driver (`postgres` package) for the web app
+- Why: works the same against local Postgres and Neon's pooled connection string; no HTTP-only driver that would break local development.
+- Trade-off: on Vercel each function instance holds a TCP connection; we cap the pool at a few connections and use Neon's `-pooler` host.
+
+### Python 3.11+ pipeline (`nba_pipeline`) with pandas, pyarrow, psycopg 3, httpx
+- Why: the working engine is pandas code. Porting it as-is keeps the math identical, and the golden files from the old engine are the parity target.
+- Trade-off: two languages in one repo. The boundary is the database schema and the dashboard JSON shapes, both covered by tests.
+
+### D3 for charts, drawn as custom SVG React components (no chart library)
+- Why: the graphics are the product (posts and videos), so every pixel is ours: fonts, team colors, annotations. D3 is used for scales, shapes and ticks; React renders the SVG.
+- Trade-off: more code per chart than a chart library.
+
+### Fonts from @fontsource packages
+- Why: `next/font/google` downloads fonts at build time, which fails without network access (and in some CI setups). Fontsource ships the font files in npm, so builds are offline and the studio PNG export can embed the same files.
+- Trade-off: font versions update through npm, not automatically.
+
+### Tailwind CSS v4 for layout utilities, CSS variables for the design tokens
+- Why: fast responsive layout; colors, type scale and team accents live in CSS variables so the studio frames and pages share one look.
+
+### Hosting target (documented only, not deployed): Neon + Vercel + GitHub Actions, $0/month
+- Why: Neon free tier (0.5 GB) holds several seasons of box scores; Vercel Hobby runs the Next app; a GitHub Actions cron runs the pipeline once a day for free on a public repo (2,000 free minutes a month on a private one).
+- Trade-off: Neon free compute suspends after inactivity, so the first page view after a quiet stretch takes about a second longer. Details in `docs/DEPLOY.md`.

@@ -1,0 +1,224 @@
+NBA DIGEST  tonight 2026-11-02  last night 2026-11-01
+Ranks are out of 30 teams, 1 = best (pace 1 = fastest). Ratings are points per 100 possessions.
+
+LEAGUE
+Unbeaten (3+ games): MEM 6-0
+Winless (3+ games): SAC 0-6
+Best net rating: MEM +14.7 (6-0), HOU +12.2 (6-1), POR +11.0 (4-1), MIN +10.7 (4-3), BOS +9.2 (5-1)
+Worst net rating: SAC -17.9 (0-6), CHI -14.4 (1-5), MIL -12.4 (1-5), PHX -12.3 (1-3), UTA -9.8 (1-5)
+Best offense: HOU 118.8, MEM 117.1, LAL 116.9 | Best defense: DET 101.0, MEM 102.4, PHI 102.4 | Fastest pace: CHI 109.8, MIA 106.3, NOP 106.2
+Streaks of 4+: MEM W6, SAC L6, BOS W5, LAC L5, SAS W4, GSW W4, IND L4, UTA L4, CHI L4
+Record and net rating far apart (10+ spots): none
+Top scorers (3+ games): Luka Doncic LAL 37.7, Anthony Edwards MIN 33.2, Tyrese Maxey PHI 29.6, Stephen Curry GSW 29.2, Jayson Tatum BOS 28.3, Giannis Antetokounmpo MIA 28.2
+Best +/- per game (20+ mpg, 3+ games): Alperen Sengun HOU +18.0, Cedric Coward MEM +16.0, Anthony Edwards MIN +16.0, Luka Doncic LAL +14.5, Deni Avdija POR +13.6, Victor Wembanyama SAS +13.3
+
+TONIGHT: 15 games
+
+OKC@CLE | 7:00 PM ET | TV NBCSN | line CLE -4.5 | total 229.5 | win odds OKC 38.5% / CLE 61.5%
+  OKC 4-2 (road 1-2, last 5 3-2, streak L2), 1 day rest. Net -0.5 #17, offense 105.4 #24, defense 105.9 #8, pace 101.1 #26, last-5 net -3.0
+  CLE 4-2 (home 3-0, last 5 4-1, streak W1), 1 day rest. Net +4.7 #10, offense 114.1 #7, defense 109.3 #16, pace 104.3 #8, last-5 net +7.2
+  Offense vs defense: OKC offense #24 vs CLE defense #16; CLE offense #7 vs OKC defense #8
+  Big rank gaps (15+ spots): eFG% OKC 49.4 #28 vs CLE 55.3 #7; 3PT% OKC 30.9 #26 vs CLE 37.0 #8; 3PM per game OKC 10.0 #28 vs CLE 14.7 #5; opponent paint points OKC 38.3 #2 vs CLE 52.3 #25; pace OKC 101.1 #26 vs CLE 104.3 #8
+  OKC injuries, 41.2 season PPG listed Out or Doubtful: Alex Caruso Out (9.2 ppg, 19.0 mpg, +16.2 +/- per game); Cason Wallace Out (6.3 ppg, 16.3 mpg, +1.7 +/- per game); Chet Holmgren Out (12.0 ppg, 30.0 mpg, +1.7 +/- per game); Jalen Williams Out (13.7 ppg, 31.7 mpg, +0.7 +/- per game); Nikola Topic Out (no games for OKC this season); Thomas Sorber Out (no games for OKC this season)
+  CLE injuries, 7.8 season PPG listed Out or Doubtful: Jaylon Tyson Out (7.8 ppg, 20.8 mpg, +6.2 +/- per game); Peyton Watson Questionable (10.8 ppg, 28.3 mpg, -4.7 +/- per game)
+  OKC top scorers: Shai Gilgeous-Alexander 26.0, Ajay Mitchell 16.5, Jalen Williams 13.7 [Out] | best +/- per game: Alex Caruso +16.2 [Out], Shai Gilgeous-Alexander +4.3 | worst: Josh Dix -9.0
+  CLE top scorers: Donovan Mitchell 22.7, Evan Mobley 19.7, James Harden 16.7 | best +/- per game: Sam Merrill +10.8, Meleek Thomas +7.7 | worst: Peyton Watson -4.7 [Questionable]
+
+ATL@IND | 7:30 PM ET | TV League Pass | line ATL -10.5 | total 229.5 | win odds ATL 78.5% / IND 21.5%
+  ATL 3-4 (road 2-2, last 5 1-4, streak L1), 1 day rest. Net +0.8 #15, offense 110.2 #16, defense 109.4 #17, pace 105.5 #6, last-5 net -9.2
+  IND 2-5 (home 0-3, last 5 1-4, streak L4), NO REST (played last night). Net -3.7 #21, offense 109.5 #17, defense 113.2 #22, pace 103.1 #13, last-5 net -2.7
+  Offense vs defense: ATL offense #16 vs IND defense #22; IND offense #17 vs ATL defense #17
+  Big rank gaps (15+ spots): forced turnover % ATL 16.4 #2 vs IND 13.4 #20
+  ATL injuries, 13.4 season PPG listed Out or Doubtful: Henri Veesaar Out (no games for ATL this season); Jock Landale Out (6.3 ppg, 15.3 mpg, -2.9 +/- per game); Kingston Flemings Out (7.1 ppg, 20.3 mpg, -3.1 +/- per game); Mouhamed Gueye Out (no games for ATL this season); Jalen Johnson Questionable (18.3 ppg, 32.7 mpg, -2.6 +/- per game)
+  IND injuries, 89.2 season PPG listed Out or Doubtful: Aaron Nesmith Out (12.2 ppg, 23.0 mpg, -6.0 +/- per game); Andrew Nembhard Out (18.5 ppg, 32.7 mpg, -2.0 +/- per game); Ben Sheppard Out (3.0 ppg, 12.0 mpg, -2.0 +/- per game); Ivica Zubac Out (9.0 ppg, 21.7 mpg, -2.0 +/- per game); Johnny Furphy Out (no games for IND this season); Pascal Siakam Out (21.4 ppg, 32.3 mpg, -2.1 +/- per game); T.J. McConnell Out (no games for IND this season); Tyrese Haliburton Out (21.8 ppg, 33.0 mpg, +4.8 +/- per game); Larry Nance Jr. Doubtful (3.3 ppg, 16.3 mpg, -4.1 +/- per game); Obi Toppin Questionable (15.2 ppg, 23.0 mpg, -0.4 +/- per game)
+  ATL top scorers: Nickeil Alexander-Walker 19.3, Jalen Johnson 18.3 [Questionable], Aaron Wiggins 14.7 | best +/- per game: Nickeil Alexander-Walker +4.9, Dyson Daniels +1.3 | worst: Luguentz Dort -4.9
+  IND top scorers: Tyrese Haliburton 21.8 [Out], Pascal Siakam 21.4 [Out], Andrew Nembhard 18.5 [Out] | best +/- per game: Tyrese Haliburton +4.8 [Out], Jarace Walker -0.3 | worst: Aaron Nesmith -6.0 [Out]
+
+BKN@NYK | 7:30 PM ET | TV League Pass | line NYK -14.5 | total 219.5 | win odds BKN 11.4% / NYK 88.6%
+  BKN 1-5 (road 1-2, last 5 1-4, streak W1), NO REST (played last night). Net -7.5 #23, offense 103.0 #29, defense 110.5 #18, pace 103.2 #12, last-5 net -7.6
+  NYK 2-4 (home 1-2, last 5 2-3, streak L1), 2 days rest. Net -0.7 #18, offense 105.9 #22, defense 106.6 #10, pace 101.0 #27, last-5 net +0.4
+  Offense vs defense: BKN offense #29 vs NYK defense #10; NYK offense #22 vs BKN defense #18
+  Big rank gaps (15+ spots): turnover % BKN 16.3 #27 vs NYK 13.3 #10; forced turnover % BKN 14.6 #11 vs NYK 12.1 #26; offensive rebound % BKN 25.4 #23 vs NYK 30.3 #6; free throw rate BKN 25.6 #7 vs NYK 18.5 #24; opponent free throw rate BKN 25.9 #27 vs NYK 18.8 #9; bench points BKN 41.3 #8 vs NYK 28.7 #27; pace BKN 103.2 #12 vs NYK 101.0 #27
+  BKN injuries, 7.8 season PPG listed Out or Doubtful: Egor Demin Out (7.8 ppg, 21.8 mpg, -2.0 +/- per game); Tyler Bilodeau Out (no games for BKN this season)
+  NYK injuries, 0.0 season PPG listed Out or Doubtful: Jose Alvarado Questionable (5.0 ppg, 13.5 mpg, -2.0 +/- per game)
+  BKN top scorers: Michael Porter Jr. 21.2, Julius Randle 20.8, Moritz Wagner 11.8 | best +/- per game: Day'Ron Sharpe +2.2, Julius Randle +1.0 | worst: Noah Clowney -10.0
+  NYK top scorers: Jalen Brunson 25.5, Karl-Anthony Towns 21.8, OG Anunoby 16.2 | best +/- per game: Landry Shamet +3.3, Josh Hart +2.5 | worst: Mikal Bridges -8.5
+
+CHI@PHI | 7:30 PM ET | TV League Pass | line PHI -10.5 | total 239.5 | win odds CHI 18.1% / PHI 81.9%
+  CHI 1-5 (road 1-3, last 5 1-4, streak L4), 2 days rest. Net -14.4 #29, offense 103.4 #27, defense 117.8 #27, pace 109.8 #1, last-5 net -9.5
+  PHI 6-1 (home 3-1, last 5 4-1, streak W3), 1 day rest. Net +3.8 #11, offense 106.2 #21, defense 102.4 #2, pace 102.4 #17, last-5 net +2.6
+  Offense vs defense: CHI offense #27 vs PHI defense #2; PHI offense #21 vs CHI defense #27
+  Big rank gaps (15+ spots): opponent eFG% CHI 56.0 #25 vs PHI 49.8 #4; turnover % CHI 14.3 #19 vs PHI 11.4 #1; forced turnover % CHI 13.0 #23 vs PHI 15.0 #8; offensive rebound % CHI 29.2 #9 vs PHI 19.9 #30; opponent 3PT% CHI 39.3 #28 vs PHI 32.1 #9; pace CHI 109.8 #1 vs PHI 102.4 #17; last-5 net rating CHI -9.5 #26 vs PHI 2.6 #11
+  CHI injuries, 0.0 season PPG listed Out or Doubtful: Nic Claxton Doubtful (no games for CHI this season); Jalen Smith Probable (12.0 ppg, 24.0 mpg, -1.3 +/- per game); Tobe Awaka Probable (2.7 ppg, 12.7 mpg, -4.0 +/- per game)
+  PHI injuries, 0.0 season PPG listed Out or Doubtful: Ariel Hukporti Out (no games for PHI this season); Dominick Barlow Out (no games for PHI this season); Joel Embiid Questionable (19.2 ppg, 35.0 mpg, +10.6 +/- per game)
+  CHI top scorers: Caleb Wilson 21.2, Norman Powell 20.7, Matas Buzelis 14.5 | best +/- per game: Norman Powell -1.2, Jalen Smith -1.3 [Probable] | worst: Leonard Miller -14.7
+  PHI top scorers: Tyrese Maxey 29.6, Jaylen Brown 19.8, Joel Embiid 19.2 [Questionable] | best +/- per game: Joel Embiid +10.6 [Questionable], Jaylen Brown +8.0 | worst: Anfernee Simons -2.3
+
+DET@CHA | 7:30 PM ET | TV League Pass | line DET -6.5 | total 210.5 | win odds DET 67.4% / CHA 32.6%
+  DET 5-1 (road 3-1, last 5 4-1, streak W2), 2 days rest. Net +7.9 #6, offense 108.9 #18, defense 101.0 #1, pace 100.9 #28, last-5 net +7.9
+  CHA 3-4 (home 2-2, last 5 2-3, streak L3), 1 day rest. Net -8.3 #24, offense 99.9 #30, defense 108.2 #13, pace 98.4 #30, last-5 net -3.5
+  Offense vs defense: DET offense #18 vs CHA defense #13; CHA offense #30 vs DET defense #1
+  Big rank gaps (15+ spots): forced turnover % DET 15.2 #6 vs CHA 13.2 #21; 3PT% DET 36.3 #9 vs CHA 29.6 #28
+  DET injuries, 20.3 season PPG listed Out or Doubtful: Isaiah Joe Out (7.3 ppg, 13.7 mpg, -4.7 +/- per game); Jalen Duren Out (13.0 ppg, 19.0 mpg, +5.5 +/- per game)
+  CHA injuries, 0.0 season PPG listed Out or Doubtful: Grant Williams Out (no games for CHA this season); Kon Knueppel Out (no games for CHA this season)
+  DET top scorers: Cade Cunningham 22.2, Duncan Robinson 16.8, Paul Reed 13.8 | best +/- per game: Duncan Robinson +9.0, Javonte Green +8.2 | worst: Kevin Huerter -0.8
+  CHA top scorers: Brandon Miller 24.4, Naz Reid 15.9, Grayson Allen 15.4 | best +/- per game: Ryan Kalkbrenner +4.0, Royce O'Neale -0.9 | worst: Moussa Diabate -11.7
+
+WAS@ORL | 7:30 PM ET | TV Monumental · League Pass | line ORL -2.5 | total 224.5 | win odds WAS 42.7% / ORL 57.3%
+  WAS 3-3 (road 1-2, last 5 2-3, streak W1), 2 days rest. Net +0.8 #15, offense 108.0 #19, defense 107.1 #12, pace 102.4 #17, last-5 net -1.4
+  ORL 2-4 (home 0-3, last 5 2-3, streak L1), NO REST (played last night). Net -8.8 #25, offense 105.6 #23, defense 114.5 #26, pace 101.9 #20, last-5 net -9.4
+  Offense vs defense: WAS offense #19 vs ORL defense #26; ORL offense #23 vs WAS defense #12
+  Big rank gaps (15+ spots): 3PT% WAS 29.3 #29 vs ORL 35.4 #11; 3PM per game WAS 9.2 #29 vs ORL 13.5 #13; paint points WAS 52.3 #5 vs ORL 42.7 #27
+  WAS injuries, 16.5 season PPG listed Out or Doubtful: Alex Sarr Out (9.3 ppg, 25.5 mpg, +1.0 +/- per game); Anthony Gill Out (0.0 ppg, 1.0 mpg, +1.0 +/- per game); Jamir Watkins Out (no games for WAS this season); Justin Champagnie Out (7.2 ppg, 18.5 mpg, +10.5 +/- per game); Reece Beekman Out (0.0 ppg, 1.0 mpg, +1.0 +/- per game); Tristan Vukcevic Out (no games for WAS this season)
+  ORL injuries, 49.0 season PPG listed Out or Doubtful: Anthony Black Out (16.5 ppg, 28.0 mpg, -3.2 +/- per game); Izaiyah Nelson Out (no games for ORL this season); Jalen Suggs Out (8.0 ppg, 33.3 mpg, -6.3 +/- per game); Jonathan Isaac Out (no games for ORL this season); Noah Penda Out (no games for ORL this season); Paolo Banchero Out (24.5 ppg, 33.5 mpg, -10.0 +/- per game)
+  WAS top scorers: Anthony Davis 22.3, Trae Young 20.7, AJ Dybantsa 18.0 | best +/- per game: Justin Champagnie +10.5 [Out], Kyshawn George +4.0 | worst: Bilal Coulibaly -4.2
+  ORL top scorers: Paolo Banchero 24.5 [Out], Franz Wagner 19.7, Desmond Bane 17.5 | best +/- per game: Wendell Carter Jr. -1.0, Desmond Bane -2.5 | worst: Paolo Banchero -10.0 [Out]
+
+MIL@MIN | 8:00 PM ET | TV League Pass | line MIN -10.5 | total 230.5 | win odds MIL 20.6% / MIN 79.4%
+  MIL 1-5 (road 0-2, last 5 1-4, streak L2), 1 day rest. Net -12.4 #28, offense 106.4 #20, defense 118.8 #28, pace 106.2 #3, last-5 net -12.6
+  MIN 4-3 (home 2-1, last 5 2-3, streak L1), 1 day rest. Net +10.7 #4, offense 113.8 #8, defense 103.1 #4, pace 103.9 #9, last-5 net +6.1
+  Offense vs defense: MIL offense #20 vs MIN defense #4; MIN offense #8 vs MIL defense #28
+  Big rank gaps (15+ spots): eFG% MIL 52.0 #21 vs MIN 55.7 #6; opponent eFG% MIL 55.4 #24 vs MIN 50.5 #5; forced turnover % MIL 10.9 #30 vs MIN 14.1 #13; 3PT% MIL 33.9 #21 vs MIN 37.8 #6; last-5 net rating MIL -12.6 #28 vs MIN 6.1 #10
+  MIL injuries, 0.0 season PPG listed Out or Doubtful: none listed
+  MIN injuries, 33.2 season PPG listed Out or Doubtful: Anthony Edwards Out (33.2 ppg, 33.8 mpg, +16.0 +/- per game); Donte DiVincenzo Out (no games for MIN this season); LaMelo Ball Questionable (14.4 ppg, 25.3 mpg, +9.0 +/- per game); Terrence Shannon Jr. Questionable (12.0 ppg, 22.0 mpg, +1.7 +/- per game)
+  MIL top scorers: Tyler Herro 22.0, Jaime Jaquez Jr. 16.2, Kel'el Ware 13.0 | best +/- per game: Ryan Rollins +0.2, Nate Ament -4.0 | worst: Kasparas Jakucionis -10.0
+  MIN top scorers: Anthony Edwards 33.2 [Out], Jaden McDaniels 17.3, Ayo Dosunmu 15.3 | best +/- per game: Anthony Edwards +16.0 [Out], Jaden McDaniels +11.9 | worst: Joan Beringer +0.9
+
+NOP@MEM | 8:00 PM ET | TV League Pass | line MEM -5.5 | total 232.5 | win odds NOP 36.0% / MEM 64.0%
+  NOP 2-4 (road 0-2, last 5 2-3, streak W2), 1 day rest. Net +1.7 #14, offense 110.8 #14, defense 109.1 #15, pace 106.2 #3, last-5 net +2.6
+  MEM 6-0 (home 2-0, last 5 5-0, streak W6), 1 day rest. Net +14.7 #1, offense 117.1 #2, defense 102.4 #2, pace 103.5 #10, last-5 net +13.7
+  Offense vs defense: NOP offense #14 vs MEM defense #2; MEM offense #2 vs NOP defense #15
+  Big rank gaps (15+ spots): opponent eFG% NOP 54.2 #20 vs MEM 49.2 #3; offensive rebound % NOP 24.0 #25 vs MEM 30.9 #5; 3PT% NOP 31.2 #25 vs MEM 41.6 #1; 3PM per game NOP 8.8 #30 vs MEM 16.0 #2; paint points NOP 62.7 #1 vs MEM 47.3 #16; opponent paint points NOP 55.0 #29 vs MEM 43.0 #5
+  NOP injuries, 15.5 season PPG listed Out or Doubtful: Jordan Poole Out (6.0 ppg, 16.0 mpg, +6.0 +/- per game); Yves Missi Out (9.5 ppg, 19.5 mpg, -7.0 +/- per game); Dejounte Murray Questionable (17.8 ppg, 32.2 mpg, -8.5 +/- per game)
+  MEM injuries, 6.4 season PPG listed Out or Doubtful: Scotty Pippen Jr. Doubtful (6.4 ppg, 16.2 mpg, +0.8 +/- per game); Quinten Post Questionable (7.6 ppg, 15.0 mpg, +1.0 +/- per game)
+  NOP top scorers: Zion Williamson 20.7, Dejounte Murray 17.8 [Questionable], Saddiq Bey 15.2 | best +/- per game: Herbert Jones +8.8, Karlo Matkovic +7.8 | worst: DeAndre Jordan -8.5
+  MEM top scorers: Ty Jerome 25.8, Cameron Boozer 17.3, Cedric Coward 13.4 | best +/- per game: Cedric Coward +16.0, Ty Jerome +12.6 | worst: Scotty Pippen Jr. +0.8 [Doubtful]
+
+SAC@DAL | 8:00 PM ET | TV League Pass | line DAL -8.5 | total 232.5 | win odds SAC 25.0% / DAL 75.0%
+  SAC 0-6 (road 0-4, last 5 0-5, streak L6), 1 day rest. Net -17.9 #30, offense 103.1 #28, defense 121.0 #29, pace 106.0 #5, last-5 net -16.7
+  DAL 4-2 (home 2-1, last 5 4-1, streak W3), 2 days rest. Net +2.4 #13, offense 111.2 #13, defense 108.8 #14, pace 102.8 #15, last-5 net +6.4
+  Offense vs defense: SAC offense #28 vs DAL defense #14; DAL offense #13 vs SAC defense #29
+  Big rank gaps (15+ spots): eFG% SAC 50.9 #24 vs DAL 56.9 #2; opponent eFG% SAC 60.2 #30 vs DAL 51.2 #7; offensive rebound % SAC 22.9 #28 vs DAL 27.9 #13; opponent 3PT% SAC 39.0 #27 vs DAL 29.7 #2; bench points SAC 19.5 #30 vs DAL 40.0 #10; last-5 net rating SAC -16.7 #30 vs DAL 6.4 #9
+  SAC injuries, 7.0 season PPG listed Out or Doubtful: Ben Simmons Out (no games for SAC this season); Keegan Murray Out (7.0 ppg, 27.0 mpg, -4.5 +/- per game); Maxime Raynaud Out (no games for SAC this season); Zach LaVine Questionable (23.5 ppg, 34.0 mpg, -17.8 +/- per game); Dylan Cardwell Questionable (no games for SAC this season)
+  DAL injuries, 26.6 season PPG listed Out or Doubtful: Dereck Lively II Out (no games for DAL this season); Sergio de Larrea Out (5.2 ppg, 11.8 mpg, -7.0 +/- per game); Tarik Biberovic Out (no games for DAL this season); Kyrie Irving Doubtful (21.4 ppg, 28.8 mpg, +4.8 +/- per game); Santi Aldama Doubtful (no games for DAL this season)
+  SAC top scorers: Darius Acuff Jr. 26.3, Zach LaVine 23.5 [Questionable], Domantas Sabonis 16.0 | best +/- per game: Jonathan Mogbo -0.8, Emanuel Sharp -2.2 | worst: Zach LaVine -17.8 [Questionable]
+  DAL top scorers: Cooper Flagg 26.8, Kyrie Irving 21.4 [Doubtful], P.J. Washington 13.8 | best +/- per game: Cooper Flagg +10.4, Caleb Martin +6.5 | worst: Naji Marshall -7.3
+
+BOS@HOU | 8:30 PM ET | TV League Pass | line HOU -5.5 | total 216.5 | win odds BOS 36.5% / HOU 63.5%
+  BOS 5-1 (road 1-1, last 5 5-0, streak W5), NO REST (played last night). Net +9.2 #5, offense 115.2 #6, defense 106.0 #9, pace 101.3 #24, last-5 net +12.6
+  HOU 6-1 (home 3-0, last 5 4-1, streak W1), 1 day rest. Net +12.2 #2, offense 118.8 #1, defense 106.6 #10, pace 101.6 #21, last-5 net +12.8
+  Offense vs defense: BOS offense #6 vs HOU defense #10; HOU offense #1 vs BOS defense #9
+  Big rank gaps (15+ spots): opponent free throw rate BOS 23.5 #20 vs HOU 18.2 #4; opponent paint points BOS 37.7 #1 vs HOU 50.0 #20; fast-break points BOS 11.5 #23 vs HOU 17.6 #7; bench points BOS 45.5 #3 vs HOU 30.3 #24
+  BOS injuries, 20.7 season PPG listed Out or Doubtful: Devin Carter Out (no games for BOS this season); Paul George Out (20.7 ppg, 31.0 mpg, +6.8 +/- per game)
+  HOU injuries, 7.2 season PPG listed Out or Doubtful: Clint Capela Out (3.2 ppg, 14.2 mpg, +2.7 +/- per game); Steven Adams Out (4.0 ppg, 8.0 mpg, +3.0 +/- per game); Reed Sheppard Questionable (10.5 ppg, 23.2 mpg, +7.2 +/- per game)
+  BOS top scorers: Jayson Tatum 28.3, Paul George 20.7 [Out], Payton Pritchard 15.0 | best +/- per game: Sam Hauser +12.0, Neemias Queta +8.3 | worst: Mitchell Robinson -5.2
+  HOU top scorers: Alperen Sengun 22.8, Kevin Durant 22.0, Jabari Smith Jr. 19.0 | best +/- per game: Alperen Sengun +18.0, Jabari Smith Jr. +12.4 | worst: Amen Thompson -0.6
+
+UTA@SAS | 8:30 PM ET | TV League Pass | line SAS -16.5 | total 229.5
+  UTA 1-5 (road 0-1, last 5 1-4, streak L4), 1 day rest. Net -9.8 #26, offense 104.5 #26, defense 114.3 #24, pace 102.2 #19, last-5 net -7.9
+  SAS 4-2 (home 2-2, last 5 4-1, streak W4), 1 day rest. Net +6.9 #8, offense 112.6 #9, defense 105.7 #7, pace 102.5 #16, last-5 net +10.6
+  Offense vs defense: UTA offense #26 vs SAS defense #7; SAS offense #9 vs UTA defense #24
+  Big rank gaps (15+ spots): turnover % UTA 15.3 #24 vs SAS 11.7 #2; opponent free throw rate UTA 28.2 #29 vs SAS 18.4 #7; paint points UTA 44.3 #20 vs SAS 55.7 #2; fast-break points UTA 8.7 #30 vs SAS 20.0 #2; last-5 net rating UTA -7.9 #23 vs SAS 10.6 #5
+  UTA injuries, 16.2 season PPG listed Out or Doubtful: Jaren Jackson Jr. Out (16.2 ppg, 26.0 mpg, -9.2 +/- per game); Jusuf Nurkic Out (no games for UTA this season); Trey Alexander Out (no games for UTA this season)
+  SAS injuries, 0.0 season PPG listed Out or Doubtful: Jayden Quaintance Out (no games for SAS this season); Tobias Harris Out (no games for SAS this season)
+  UTA top scorers: Keyonte George 21.7, Jaren Jackson Jr. 16.2 [Out], Lauri Markkanen 15.4 | best +/- per game: Mo Bamba +3.0, Ace Bailey -3.7 | worst: Jaxson Hayes -9.6
+  SAS top scorers: Victor Wembanyama 28.0, Dylan Harper 18.5, De'Aaron Fox 16.5 | best +/- per game: Victor Wembanyama +13.3, De'Aaron Fox +11.2 | worst: Keldon Johnson +1.7
+
+POR@DEN | 9:00 PM ET | TV League Pass | line DEN -4.5 | total 231.5
+  POR 4-1 (road 3-0, last 5 4-1, streak W1), 1 day rest. Net +11.0 #3, offense 116.5 #4, defense 105.5 #6, pace 103.5 #10, last-5 net +11.0
+  DEN 3-2 (home 1-1, last 5 3-2, streak W2), 2 days rest. Net -1.2 #19, offense 111.7 #11, defense 112.9 #21, pace 100.0 #29, last-5 net -1.2
+  Offense vs defense: POR offense #4 vs DEN defense #21; DEN offense #11 vs POR defense #6
+  Big rank gaps (15+ spots): defensive rebound % POR 77.3 #3 vs DEN 70.5 #23; pace POR 103.5 #10 vs DEN 100.0 #29
+  POR injuries, 15.8 season PPG listed Out or Doubtful: Ja Morant Out (15.8 ppg, 26.0 mpg, +10.2 +/- per game); Shaedon Sharpe Out (no games for POR this season)
+  DEN injuries, 0.0 season PPG listed Out or Doubtful: Julian Strawther Out (no games for DEN this season); Spencer Jones Out (no games for DEN this season); Alpha Diallo Questionable (4.0 ppg, 22.0 mpg, +1.0 +/- per game)
+  POR top scorers: Deni Avdija 23.0, Damian Lillard 19.2, Ja Morant 15.8 [Out] | best +/- per game: Deni Avdija +13.6, Donovan Clingan +10.6 | worst: Scoot Henderson +1.2
+  DEN top scorers: Jamal Murray 25.8, Nikola Jokic 21.2, Christian Braun 15.4 | best +/- per game: Cameron Johnson +6.0, Jamal Murray +3.6 | worst: Bryce Hopkins -7.8
+
+MIA@LAL | 10:00 PM ET | TV League Pass | line LAL -1.5 | total 236.5
+  MIA 2-4 (road 1-1, last 5 2-3, streak W2), 2 days rest. Net -3.0 #20, offense 111.3 #12, defense 114.3 #24, pace 106.3 #2, last-5 net +1.1
+  LAL 5-2 (home 3-1, last 5 3-2, streak W1), NO REST (played last night). Net +5.1 #9, offense 116.9 #3, defense 111.7 #19, pace 102.9 #14, last-5 net +1.4
+  Offense vs defense: MIA offense #12 vs LAL defense #19; LAL offense #3 vs MIA defense #24
+  Big rank gaps (15+ spots): turnover % MIA 12.7 #5 vs LAL 16.7 #29; free throw rate MIA 20.0 #21 vs LAL 29.5 #1; opponent free throw rate MIA 17.8 #2 vs LAL 23.4 #18
+  MIA injuries, 0.0 season PPG listed Out or Doubtful: none listed
+  LAL injuries, 11.2 season PPG listed Out or Doubtful: Adou Thiero Out (no games for LAL this season); Ziaire Williams Out (11.2 ppg, 28.5 mpg, +7.2 +/- per game)
+  MIA top scorers: Giannis Antetokounmpo 28.2, Bam Adebayo 16.3, Davion Mitchell 16.2 | best +/- per game: Bobby Portis +2.3, Tim Hardaway Jr. +0.3 | worst: Andrew Wiggins -6.5
+  LAL top scorers: Luka Doncic 37.7, Austin Reaves 23.1, Walker Kessler 14.3 | best +/- per game: Luka Doncic +14.5, Austin Reaves +8.7 | worst: Collin Sexton -3.5
+
+PHX@GSW | 10:00 PM ET | TV League Pass | line GSW -2.5 | total 227.5
+  PHX 1-3 (road 0-2, last 5 1-3, streak L2), 2 days rest. Net -12.3 #27, offense 110.5 #15, defense 122.9 #30, pace 101.3 #24, last-5 net -12.3
+  GSW 4-3 (home 2-1, last 5 4-1, streak W4), NO REST (played last night). Net +2.8 #12, offense 116.0 #5, defense 113.2 #22, pace 101.5 #23, last-5 net +8.9
+  Offense vs defense: PHX offense #15 vs GSW defense #22; GSW offense #5 vs PHX defense #30
+  Big rank gaps (15+ spots): last-5 net rating PHX -12.3 #27 vs GSW 8.9 #6
+  PHX injuries, 0.0 season PPG listed Out or Doubtful: Mark Williams Out (no games for PHX this season)
+  GSW injuries, 7.2 season PPG listed Out or Doubtful: Gui Santos Out (7.2 ppg, 20.2 mpg, +3.7 +/- per game); Jimmy Butler III Out (no games for GSW this season); Kristaps Porzingis Out (no games for GSW this season); Moses Moody Out (no games for GSW this season); Draymond Green Day-to-day (3.0 ppg, 28.6 mpg, +0.0 +/- per game); Stephen Curry Day-to-day (29.2 ppg, 28.2 mpg, +2.0 +/- per game)
+  PHX top scorers: Devin Booker 22.2, Dillon Brooks 16.5, Miles Bridges 16.2 | best +/- per game: Luke Kennard +5.7, Oso Ighodaro -1.5 | worst: Devin Booker -16.8
+  GSW top scorers: Stephen Curry 29.2 [Day-to-day], Yaxel Lendeborg 22.3, Brandin Podziemski 16.4 | best +/- per game: Brandin Podziemski +10.8, Brandon Williams +4.6 | worst: Al Horford -2.2
+
+TOR@LAC | 10:00 PM ET | TV League Pass | line TOR -5.5 | total 219.5
+  TOR 3-3 (road 1-2, last 5 2-3, streak L2), NO REST (played last night). Net +7.4 #7, offense 112.0 #10, defense 104.6 #5, pace 105.5 #6, last-5 net +0.8
+  LAC 1-5 (home 1-1, last 5 0-5, streak L5), NO REST (played last night). Net -7.2 #22, offense 104.8 #25, defense 112.0 #20, pace 101.6 #21, last-5 net -13.6
+  Offense vs defense: TOR offense #10 vs LAC defense #20; LAC offense #25 vs TOR defense #5
+  Big rank gaps (15+ spots): turnover % TOR 11.8 #3 vs LAC 18.4 #30; offensive rebound % TOR 32.6 #2 vs LAC 26.5 #21; opponent free throw rate TOR 32.6 #30 vs LAC 17.8 #2; 3PT% TOR 32.0 #24 vs LAC 38.6 #5; paint points TOR 50.7 #7 vs LAC 43.0 #25; opponent paint points TOR 43.3 #6 vs LAC 54.0 #28; pace TOR 105.5 #6 vs LAC 101.6 #21
+  TOR injuries, 19.5 season PPG listed Out or Doubtful: Kawhi Leonard Out (19.5 ppg, 26.0 mpg, +3.5 +/- per game); Nate Bittle Out (no games for TOR this season); Jakob Poeltl Questionable (4.6 ppg, 20.2 mpg, +2.6 +/- per game)
+  LAC injuries, 0.0 season PPG listed Out or Doubtful: Bradley Beal Out (no games for LAC this season); Brandon Ingram Out (no games for LAC this season); Jordan Miller Out (no games for LAC this season); Max Strus Out (no games for LAC this season); Yanic Konan Niederhauser Out (no games for LAC this season); Derrick Jones Jr. Day-to-day (11.5 ppg, 28.8 mpg, -6.2 +/- per game)
+  TOR top scorers: Scottie Barnes 24.8, RJ Barrett 19.8, Kawhi Leonard 19.5 [Out] | best +/- per game: Immanuel Quickley +7.7, RJ Barrett +6.8 | worst: Jamal Shead -3.7
+  LAC top scorers: Darius Garland 20.8, Rui Hachimura 13.4, Keaton Wagler 13.2 | best +/- per game: Kobe Sanders -0.7, Kris Dunn -1.0 | worst: Darius Garland -11.3
+
+LAST NIGHT: 4 games
+
+TOR@LAL | LAL won 131-125 | quarters 23-36,31-30,28-38,43-27 | largest leads TOR 5, LAL 26 | lead changes 1
+  Biggest team-stat gaps: Field goal attempts TOR 105, LAL 80 (Major); Offensive rebounds TOR 22, LAL 9 (Major); Turnover % TOR 11.5, LAL 20.3 (Major); 3-point attempts TOR 54, LAL 37 (Major); Turnovers TOR 15, LAL 24 (Major)
+  Luka Doncic LAL vs TOR: 45 pts, 15 reb, 6 ast, 5 stl, 1 blk, 7 tov, FG 12-23, 3PT 8-12, FT 13-13, 35 min, +/- +27 | season avg before: 36.2 pts, 6.8 reb, 7.6 ast | PTS +9 vs avg · REB +8 · +/- +27 · Double-double
+  Scottie Barnes TOR at LAL: 29 pts, 6 reb, 5 ast, 2 stl, 0 blk, 5 tov, FG 11-20, 3PT 0-3, FT 7-13, 36 min, +/- -9 | season avg before: 24.0 pts, 6.8 reb, 4.4 ast
+  RJ Barrett TOR at LAL: 22 pts, 10 reb, 5 ast, 0 stl, 0 blk, 3 tov, FG 9-18, 3PT 4-9, FT 0-0, 32 min, +/- +9 | season avg before: 19.4 pts, 5.4 reb, 4.0 ast | 3PM +3 · Double-double
+  Jamison Battle TOR at LAL: 20 pts, 5 reb, 0 ast, 0 stl, 0 blk, 1 tov, FG 7-14, 3PT 4-10, FT 2-2, 17 min, +/- -4 | season avg before: 5.2 pts, 1.2 reb, 0.6 ast | PTS +15 vs avg · 3PM +3 · Season high PTS
+  Walker Kessler LAL vs TOR: 16 pts, 15 reb, 1 ast, 1 stl, 3 blk, 2 tov, FG 6-6, 3PT 0-0, FT 4-4, 31 min, +/- +11 | season avg before: 14.0 pts, 9.0 reb, 1.2 ast | REB +6 · Double-double
+  Jamal Shead TOR at LAL: 9 pts, 2 reb, 6 ast, 3 stl, 0 blk, 2 tov, FG 3-6, 3PT 2-4, FT 1-1, 25 min, +/- -27 | season avg before: 5.2 pts, 2.0 reb, 5.0 ast | +/- -27
+  Best +/-: Luka Doncic LAL +27, Austin Reaves LAL +14 | Worst +/-: Jamal Shead TOR -27, Collin Murray-Boyles TOR -14
+  Did not play: Jakob Poeltl TOR (Left shoulder)
+
+LAC@GSW | GSW won 124-112 | quarters 37-29,20-34,28-29,27-32 | largest leads LAC 11, GSW 22 | lead changes 7 | COMEBACK (LAC led by 11 and lost)
+  Biggest team-stat gaps: Free throw % LAC 94.7, GSW 71.4 (Major); Effective FG % LAC 51.6, GSW 66.3 (Major); 3-pointers made LAC 14, GSW 22 (Notable); Assists LAC 22, GSW 32 (Notable); Steals LAC 11, GSW 5 (Notable)
+  Yaxel Lendeborg GSW vs LAC: 37 pts, 4 reb, 6 ast, 1 stl, 0 blk, 2 tov, FG 13-19, 3PT 6-11, FT 5-6, 34 min, +/- +6 | season avg before: 19.8 pts, 7.8 reb, 3.3 ast | PTS +17 vs avg · 3PM +4 · Season high PTS
+  Rui Hachimura LAC at GSW: 24 pts, 7 reb, 0 ast, 0 stl, 0 blk, 2 tov, FG 10-16, 3PT 4-7, FT 0-0, 30 min, +/- -28 | season avg before: 10.8 pts, 5.8 reb, 0.8 ast | PTS +13 vs avg · Season high PTS · +/- -28
+  De'Anthony Melton GSW vs LAC: 21 pts, 6 reb, 3 ast, 2 stl, 1 blk, 4 tov, FG 6-9, 3PT 6-8, FT 3-4, 28 min, +/- +20 | season avg before: 10.3 pts, 3.8 reb, 2.2 ast | PTS +11 vs avg · 3PM +4 · +/- +20
+  Brandon Williams GSW vs LAC: 17 pts, 3 reb, 3 ast, 0 stl, 1 blk, 1 tov, FG 7-11, 3PT 2-3, FT 1-2, 25 min, +/- +15 | season avg before: 10.7 pts, 2.8 reb, 2.3 ast | +/- +15
+  Kobe Sanders LAC at GSW: 16 pts, 3 reb, 0 ast, 1 stl, 0 blk, 3 tov, FG 6-9, 3PT 4-6, FT 0-0, 30 min, +/- -18 | season avg before: 7.0 pts, 3.0 reb, 2.4 ast | PTS +9 vs avg · 3PM +3 · Season high PTS · +/- -18
+  Darius Garland LAC at GSW: 15 pts, 0 reb, 7 ast, 1 stl, 0 blk, 3 tov, FG 4-12, 3PT 1-7, FT 6-6, 33 min, +/- -17 | season avg before: 22.0 pts, 1.6 reb, 6.2 ast | +/- -17
+  Best +/-: De'Anthony Melton GSW +20, Brandon Williams GSW +15 | Worst +/-: Rui Hachimura LAC -28, Isaiah Jackson LAC -20
+
+BKN@IND | BKN won 98-90 | quarters 20-19,23-21,28-22,27-28 | largest leads BKN 12, IND 1 | lead changes 4 | UPSET (winner had the worse record)
+  Biggest team-stat gaps: Defensive rebounds BKN 36, IND 28 (Notable)
+  Michael Porter Jr. BKN at IND: 23 pts, 9 reb, 3 ast, 1 stl, 0 blk, 4 tov, FG 7-16, 3PT 3-10, FT 6-9, 36 min, +/- +4 | season avg before: 20.8 pts, 7.0 reb, 1.0 ast
+  Andrew Nembhard IND vs BKN: 23 pts, 3 reb, 4 ast, 1 stl, 0 blk, 3 tov, FG 7-19, 3PT 4-10, FT 5-6, 35 min, +/- -1 | season avg before: 17.6 pts, 2.0 reb, 8.0 ast | AST -4 · Season high PTS
+  Julius Randle BKN at IND: 20 pts, 5 reb, 6 ast, 2 stl, 0 blk, 4 tov, FG 5-15, 3PT 4-9, FT 6-6, 37 min, +/- +17 | season avg before: 21.0 pts, 7.6 reb, 5.2 ast | +/- +17
+  Nolan Traore BKN at IND: 16 pts, 2 reb, 6 ast, 1 stl, 0 blk, 1 tov, FG 6-14, 3PT 4-8, FT 0-0, 30 min, +/- +8 | season avg before: 9.4 pts, 1.8 reb, 2.0 ast | AST +4 · 3PM +3 · MIN +11
+  Day'Ron Sharpe BKN at IND: 15 pts, 13 reb, 4 ast, 0 stl, 0 blk, 2 tov, FG 5-7, 3PT 1-1, FT 4-5, 26 min, +/- +13 | season avg before: 6.6 pts, 6.6 reb, 1.2 ast | PTS +8 vs avg · REB +6 · Season high PTS · Double-double
+  Aaron Nesmith IND vs BKN: 11 pts, 3 reb, 4 ast, 1 stl, 0 blk, 3 tov, FG 3-8, 3PT 0-4, FT 5-6, 30 min, +/- -15 | season avg before: 12.4 pts, 2.0 reb, 1.4 ast | +/- -15
+  Best +/-: Julius Randle BKN +17, Day'Ron Sharpe BKN +13 | Worst +/-: Aaron Nesmith IND -15, Jalen Slawson IND -10
+  Did not play: Obi Toppin IND (Low back soreness), Ivica Zubac IND (Left ankle injury)
+
+BOS@ORL | BOS won 108-97 | quarters 24-23,31-27,22-24,31-23 | largest leads BOS 15, ORL 9 | lead changes 5
+  Biggest team-stat gaps: Blocks BOS 7, ORL 2 (Notable); Turnover % BOS 12.0, ORL 16.8 (Notable)
+  Jayson Tatum BOS at ORL: 32 pts, 4 reb, 7 ast, 0 stl, 2 blk, 4 tov, FG 8-19, 3PT 1-5, FT 15-17, 34 min, +/- +7 | season avg before: 27.6 pts, 6.4 reb, 7.8 ast
+  Anthony Black ORL vs BOS: 23 pts, 8 reb, 3 ast, 2 stl, 0 blk, 4 tov, FG 6-12, 3PT 1-5, FT 10-11, 33 min, +/- -11 | season avg before: 14.3 pts, 3.7 reb, 5.3 ast | PTS +9 vs avg · Season high PTS
+  Tristan da Silva ORL vs BOS: 23 pts, 10 reb, 2 ast, 0 stl, 0 blk, 2 tov, FG 9-14, 3PT 5-8, FT 0-0, 35 min, +/- -1 | season avg before: 13.2 pts, 2.0 reb, 1.4 ast | PTS +10 vs avg · REB +8 · Season high PTS · Double-double
+  Franz Wagner ORL vs BOS: 14 pts, 6 reb, 12 ast, 0 stl, 0 blk, 3 tov, FG 5-20, 3PT 1-4, FT 3-4, 40 min, +/- -7 | season avg before: 20.8 pts, 6.8 reb, 7.0 ast | AST +5 · Double-double
+  Derrick White BOS at ORL: 12 pts, 2 reb, 2 ast, 2 stl, 0 blk, 1 tov, FG 4-8, 3PT 2-5, FT 2-2, 34 min, +/- +18 | season avg before: 11.8 pts, 3.6 reb, 5.8 ast | +/- +18
+  Luka Garza BOS at ORL: 12 pts, 6 reb, 4 ast, 1 stl, 0 blk, 0 tov, FG 4-7, 3PT 2-4, FT 2-3, 21 min, +/- +11 | season avg before: 4.6 pts, 2.2 reb, 0.6 ast | MIN +12
+  Best +/-: Derrick White BOS +18, Luka Garza BOS +11 | Worst +/-: Anthony Black ORL -11, Desmond Bane ORL -10
+
+TOP LINES LAST NIGHT (by points, plus any 15+ reb, 10+ ast, 5+ stl or blk, or triple-double)
+  Luka Doncic LAL vs TOR: 45 pts, 15 reb, 6 ast, 5 stl, 1 blk, 7 tov, FG 12-23, 3PT 8-12, FT 13-13, 35 min, +/- +27 | season avg before: 36.2 pts, 6.8 reb, 7.6 ast | PTS +9 vs avg · REB +8 · +/- +27 · Double-double
+  Yaxel Lendeborg GSW vs LAC: 37 pts, 4 reb, 6 ast, 1 stl, 0 blk, 2 tov, FG 13-19, 3PT 6-11, FT 5-6, 34 min, +/- +6 | season avg before: 19.8 pts, 7.8 reb, 3.3 ast | PTS +17 vs avg · 3PM +4 · Season high PTS
+  Jayson Tatum BOS at ORL: 32 pts, 4 reb, 7 ast, 0 stl, 2 blk, 4 tov, FG 8-19, 3PT 1-5, FT 15-17, 34 min, +/- +7 | season avg before: 27.6 pts, 6.4 reb, 7.8 ast
+  Scottie Barnes TOR at LAL: 29 pts, 6 reb, 5 ast, 2 stl, 0 blk, 5 tov, FG 11-20, 3PT 0-3, FT 7-13, 36 min, +/- -9 | season avg before: 24.0 pts, 6.8 reb, 4.4 ast
+  Rui Hachimura LAC at GSW: 24 pts, 7 reb, 0 ast, 0 stl, 0 blk, 2 tov, FG 10-16, 3PT 4-7, FT 0-0, 30 min, +/- -28 | season avg before: 10.8 pts, 5.8 reb, 0.8 ast | PTS +13 vs avg · Season high PTS · +/- -28
+  Anthony Black ORL vs BOS: 23 pts, 8 reb, 3 ast, 2 stl, 0 blk, 4 tov, FG 6-12, 3PT 1-5, FT 10-11, 33 min, +/- -11 | season avg before: 14.3 pts, 3.7 reb, 5.3 ast | PTS +9 vs avg · Season high PTS
+  Tristan da Silva ORL vs BOS: 23 pts, 10 reb, 2 ast, 0 stl, 0 blk, 2 tov, FG 9-14, 3PT 5-8, FT 0-0, 35 min, +/- -1 | season avg before: 13.2 pts, 2.0 reb, 1.4 ast | PTS +10 vs avg · REB +8 · Season high PTS · Double-double
+  Michael Porter Jr. BKN at IND: 23 pts, 9 reb, 3 ast, 1 stl, 0 blk, 4 tov, FG 7-16, 3PT 3-10, FT 6-9, 36 min, +/- +4 | season avg before: 20.8 pts, 7.0 reb, 1.0 ast
+  Andrew Nembhard IND vs BKN: 23 pts, 3 reb, 4 ast, 1 stl, 0 blk, 3 tov, FG 7-19, 3PT 4-10, FT 5-6, 35 min, +/- -1 | season avg before: 17.6 pts, 2.0 reb, 8.0 ast | AST -4 · Season high PTS
+  RJ Barrett TOR at LAL: 22 pts, 10 reb, 5 ast, 0 stl, 0 blk, 3 tov, FG 9-18, 3PT 4-9, FT 0-0, 32 min, +/- +9 | season avg before: 19.4 pts, 5.4 reb, 4.0 ast | 3PM +3 · Double-double
+  Franz Wagner ORL vs BOS: 14 pts, 6 reb, 12 ast, 0 stl, 0 blk, 3 tov, FG 5-20, 3PT 1-4, FT 3-4, 40 min, +/- -7 | season avg before: 20.8 pts, 6.8 reb, 7.0 ast | AST +5 · Double-double
+  Kris Dunn LAC at GSW: 12 pts, 2 reb, 4 ast, 7 stl, 0 blk, 0 tov, FG 5-8, 3PT 0-3, FT 2-2, 27 min, +/- -8 | season avg before: 7.8 pts, 4.4 reb, 5.6 ast
+  Walker Kessler LAL vs TOR: 16 pts, 15 reb, 1 ast, 1 stl, 3 blk, 2 tov, FG 6-6, 3PT 0-0, FT 4-4, 31 min, +/- +11 | season avg before: 14.0 pts, 9.0 reb, 1.2 ast | REB +6 · Double-double
