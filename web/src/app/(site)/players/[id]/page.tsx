@@ -6,8 +6,9 @@ import { Columns } from "@/components/charts/Bars";
 import { coverageNote, ShotPanel } from "@/components/shots/ShotPanel";
 import { accentOf, DeltaMark, NoDatabase, PmBar, SectionHead } from "@/components/ui/bits";
 import { DatabaseNotConfigured } from "@/db/client";
-import { getPlayerPage, resolveDay } from "@/lib/data";
-import { addDays, f1, monthDay, seasonLabel, signed, signedInt } from "@/lib/format";
+import { getPlayerPage, resolveDay, type OnOff, type PlayerClutch, type Team, type TeamClutch } from "@/lib/data";
+import { minutesOf } from "@/lib/flow";
+import { addDays, f1, monthDay, pctText, seasonLabel, signed, signedInt } from "@/lib/format";
 import { shotTitle } from "@/lib/shots";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +29,110 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
+const SAMPLE_POSS = 50;
+
+function Mini({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="grid gap-1">
+      <span className="text-[12px] text-muted">{label}</span>
+      <span className="display text-[34px] leading-none">{value}</span>
+      {sub ? <span className="text-[13px] text-ink-2">{sub}</span> : null}
+    </div>
+  );
+}
+
+function OnOffPanel({ rows, teams }: { rows: OnOff[]; teams: Map<string, Team> }) {
+  return (
+    <div>
+      <SectionHead title="On and off the floor">
+        His team&apos;s points scored and allowed per 100 possessions with him on the floor and off it, in the games he played.
+      </SectionHead>
+      <div className="grid gap-4">
+        {rows.map((r) => {
+          const small = Math.min(r.on_poss, r.off_poss) < SAMPLE_POSS;
+          return (
+            <div key={r.team_code} className="panel grid gap-5 p-5">
+              {rows.length > 1 ? <span className="text-[13px] font-semibold text-ink-2">With {teams.get(r.team_code)?.display_name ?? r.team_code}</span> : null}
+              <div className="grid grid-cols-3 gap-4">
+                <Mini label="Net rating on" value={signed(r.on_net)} sub={`${minutesOf(r.on_secs)} minutes`} />
+                <Mini label="Net rating off" value={signed(r.off_net)} sub={`${minutesOf(r.off_secs)} minutes`} />
+                <Mini label="On-off" value={signed(r.on_off)} sub={`${r.games} ${r.games === 1 ? "game" : "games"}`} />
+              </div>
+              <div className="table-wrap">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th></th>
+                      <th className="r">MIN</th>
+                      <th className="r">Poss</th>
+                      <th className="r">Off rtg</th>
+                      <th className="r">Def rtg</th>
+                      <th className="r">Net</th>
+                      <th className="r">Score</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(
+                      [
+                        ["On the floor", r.on_secs, r.on_poss, r.on_ortg, r.on_drtg, r.on_net, r.on_pts, r.on_opp_pts],
+                        ["Off the floor", r.off_secs, r.off_poss, r.off_ortg, r.off_drtg, r.off_net, r.off_pts, r.off_opp_pts],
+                      ] as const
+                    ).map(([label, secs, poss, o, d, n, pts, opp]) => (
+                      <tr key={label}>
+                        <td>{label}</td>
+                        <td className="r num">{minutesOf(secs)}</td>
+                        <td className="r num">{f1(poss)}</td>
+                        <td className="r num">{f1(o)}</td>
+                        <td className="r num">{f1(d)}</td>
+                        <td className="r num font-semibold">{signed(n)}</td>
+                        <td className="r num">
+                          {pts}-{opp}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {small ? <p className="note">Fewer than {SAMPLE_POSS} possessions on one side: a small sample.</p> : null}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ClutchPanel({ rows, teamClutch, teams }: { rows: PlayerClutch[]; teamClutch: Map<string, TeamClutch>; teams: Map<string, Team> }) {
+  return (
+    <div>
+      <SectionHead title="Clutch time">The last 5 minutes of the 4th quarter or overtime with the score within 5.</SectionHead>
+      <div className="grid gap-4">
+        {rows.length ? (
+          rows.map((r) => {
+            const tc = teamClutch.get(r.team_code);
+            return (
+              <div key={r.team_code} className="panel grid gap-5 p-5">
+                <div className="grid grid-cols-2 gap-5 sm:grid-cols-4">
+                  <Mini label="Points" value={String(r.pts)} sub={`${minutesOf(r.secs)} minutes, ${r.games} ${r.games === 1 ? "game" : "games"}`} />
+                  <Mini label="Field goals" value={`${r.fgm}-${r.fga}`} sub={r.fga ? pctText(r.fg_pct) : "No shots"} />
+                  <Mini label="Plus-minus" value={signedInt(r.pm)} sub="on the floor" />
+                  <Mini label="Net rating" value={signed(r.net)} sub={`${f1(r.poss)} possessions`} />
+                </div>
+                <p className="text-[14px] text-ink-2">
+                  Threes {r.tpm}-{r.tpa}, free throws {r.ftm}-{r.fta}.
+                  {tc ? ` The ${teams.get(r.team_code)?.nickname ?? r.team_code} are ${tc.w}-${tc.l} in games with clutch time.` : ""}
+                </p>
+              </div>
+            );
+          })
+        ) : (
+          <div className="panel p-5 text-[14px] text-muted">No clutch minutes yet this season.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default async function PlayerPage({ params, searchParams }: { params: Params; searchParams: Promise<{ date?: string; shots?: string }> }) {
   const { id } = await params;
   const pid = Number(id);
@@ -42,7 +147,7 @@ export default async function PlayerPage({ params, searchParams }: { params: Par
     throw e;
   }
   if (!data) notFound();
-  const { player, teams, row, log, season, shots, zones } = data;
+  const { player, teams, row, log, season, shots, zones, onOff, clutch, teamClutch } = data;
   const team = teams.get(row?.team_code ?? player.team_code ?? "");
   const asOf = zones[0]?.as_of;
   const fga = log.filter(({ g }) => !asOf || g.game_date < asOf).reduce((n, { pg }) => n + (pg.fga ?? 0), 0);
@@ -137,6 +242,13 @@ export default async function PlayerPage({ params, searchParams }: { params: Par
               />
             </div>
           </div>
+        </section>
+      ) : null}
+
+      {onOff.length ? (
+        <section className="grid gap-5 lg:grid-cols-2">
+          <OnOffPanel rows={onOff} teams={teams} />
+          <ClutchPanel rows={clutch} teamClutch={teamClutch} teams={teams} />
         </section>
       ) : null}
 
