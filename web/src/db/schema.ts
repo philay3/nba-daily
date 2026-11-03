@@ -135,7 +135,7 @@ export const team_games = pgTable(
     flagrant_fouls: int("flagrant_fouls"),
     fb: int("fb").notNull(), // fast-break points
     paint: int("paint").notNull(), // points in the paint
-    pts_off_to: int("pts_off_to").notNull(), // points off turnovers
+    pts_off_to: int("pts_off_to").notNull(), // points scored off the opponent's turnovers (the opponent's ESPN turnoverPoints)
     bench_pts: int("bench_pts").notNull(),
     largest_lead: int("largest_lead").notNull(),
     lead_changes: int("lead_changes").notNull(),
@@ -269,8 +269,8 @@ export const team_season = pgTable(
     opp_fb_pg: dbl("opp_fb_pg"),
     paint_pg: dbl("paint_pg"),
     opp_paint_pg: dbl("opp_paint_pg"),
-    pts_off_to_pg: dbl("pts_off_to_pg"),
-    opp_pts_off_to_pg: dbl("opp_pts_off_to_pg"),
+    pts_off_to_pg: dbl("pts_off_to_pg"), // points scored off the opponent's turnovers
+    opp_pts_off_to_pg: dbl("opp_pts_off_to_pg"), // points allowed off this team's turnovers
     bench_ppg: dbl("bench_ppg"),
     opp_bench_ppg: dbl("opp_bench_ppg"),
     // league ranks, 1 = best (pace 1 = fastest)
