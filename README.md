@@ -19,15 +19,28 @@ Requirements: Docker (for Postgres), Node 22, Python 3.11 or newer.
 ```bash
 git clone https://github.com/philay3/nba-daily.git
 cd nba-daily
-cp .env.example .env
-docker compose up -d db
+cp .env.example .env                # DATABASE_URL for the local container; set NEXT_PUBLIC_BRAND_HANDLE too
+docker compose up -d db             # Postgres 16 on localhost:5432
 
+python3 -m venv .venv && source .venv/bin/activate
 python3 -m pip install -e "pipeline[dev]"
 npm --prefix web ci
 
 python3 -m nba_pipeline migrate     # create the tables
 python3 -m nba_pipeline seed        # load the bundled day (2026-11-02), no network needed
 npm --prefix web run dev            # open http://localhost:3000
+```
+
+The seeded day is Monday, Nov 2, 2026: 15 games that night and 4 the night before. `http://localhost:3000/?date=2026-11-03` shows a day without games (Election Day).
+
+Checks:
+
+```bash
+cd pipeline && python3 -m pytest -q && cd ..        # parity with the old engine, parsers, database load
+npm --prefix web run typecheck && npm --prefix web run lint && npm --prefix web run build
+npm install -g playwright && npx playwright install chromium        # once, for the smoke test
+npm --prefix web run start &                                        # or `run dev`
+NODE_PATH="$(npm root -g)" npm --prefix web run smoke               # every page and graphic, PNG export sizes
 ```
 
 Live data for a day (downloads the hoopR mirror and ESPN odds and injuries):
@@ -57,6 +70,10 @@ The `Makefile` wraps the same commands: `make db-up migrate seed web`, `make run
 | `seed` | Load the bundled fixture day with its golden inputs |
 | `record-fixtures --date D --out DIR` | Save live ESPN responses (summaries, odds, injuries) for new tests |
 | `migrate` | Apply `web/drizzle` migrations |
+
+## Screenshots
+
+`docs/screenshots/` has the Today and game pages at 1440 and 390 pixels wide, the Teams page, the studio editor, and every studio template at its export size (refresh them with `SCREENSHOTS=1 DATE=2026-11-02 GAME_ID=401909906 NODE_PATH="$(npm root -g)" npm --prefix web run smoke`).
 
 ## Docs
 

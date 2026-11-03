@@ -55,3 +55,74 @@ Short entries: the decision, why, and the trade-off. Newest at the bottom of eac
 
 ### Player ids are bigint
 - Why: the engine gives patch-file players without an ESPN id a crc32 id, which can exceed a 32-bit integer.
+
+## Pipeline
+
+### Port the engine line by line, then widen it to every game
+- Why: the golden files are the contract. `compute.py` keeps the engine's formulas, rounding and pandas operations (even its sort calls, so tie order matches), then runs the same per-game code for every game of the season instead of only last night: box order, deltas and flags, team-vs-team gaps, rest, records entering, upsets.
+- Trade-off: a full-season run recomputes everything (about 3 seconds for the fixture day, roughly 10 to 20 seconds late in a season).
+
+### A run for date D counts only games before D
+- Why: makes `--date` backfills reproduce that morning; on a normal morning it changes nothing (tonight's games are not final yet).
+- Trade-off: none for daily use. The engine counted whatever the files held.
+
+### export-json and digest read the database, through the same code as the parity test
+- Why: `dashboard_files(tables)` is the only code that builds the old dashboard's ten files. The parity test feeds it rows from memory and rows read back from Postgres, so the database is proven to hold everything the dashboard needs.
+- Trade-off: ordering rules the engine inherited from hoopR's file order are written out explicitly in `export.py` (games by tip, results by tip descending then ESPN id, and so on).
+
+### Win odds from ESPN's predictor, else the no-vig moneyline split
+- Why: the old task got win odds from Sportradar through a Claude tool that a GitHub Action cannot call. ESPN's summary carries a predictor before tip-off and the DraftKings moneylines; both are free and come with the line. `odds.wp_source` records which one was used.
+- Trade-off: numbers will differ slightly from Sportradar's. `odds.json` in `--inputs` still overrides.
+
+### Injuries from ESPN's injuries JSON, with the old task's status rules in code
+- Why: the old task read ESPN's injuries web page with an LLM. The JSON endpoint gives the same data with structure; game-day designations are read from the comment text, notes are built from structured fields (never ESPN's prose), and names are normalized to the box-score spelling when exactly one player matches.
+- Trade-off: the parser was written against a synthetic sample (ESPN is blocked in the build sandbox). `record-fixtures` saves a real response for a follow-up test.
+
+### Editorial is a provider interface with a no-op default
+- Why: v1 has no AI-written notes. `NoopEditorial` writes nothing, `FileEditorial` reads `editorial.json`, and a `ClaudeEditorial` TODO describes the Claude API version (digest in, JSON out). The web app falls back to data: a factual lede and "best matchups by net rating".
+- Trade-off: without a provider the brief check ("two date rows and one headline") is a warning, not an error.
+
+### Unattended checks: "30 teams" is a warning
+- Why: the engine's finish step treated fewer than 30 teams as an error, which would fail the daily job on opening night. Everything else (period sums, player points versus team points, injury rows for teams not playing, bad statuses, duplicates) stays an error and marks the run as `error` in `pipeline_runs` (the data still loads; the job exits non-zero).
+
+### NBA Cup knockout placeholders are skipped
+- Why: the schedule lists them with `TBD` teams until the matchups are set; they have no team to reference. They load normally once ESPN fills in the teams.
+- Known gap: the NBA Cup championship game is in hoopR's regular-season files but does not count in the official standings; v1 counts it, like the engine did.
+
+### Daily schedule: two cron entries, idempotent run
+- Why: GitHub cron is UTC and the season spans both EDT and EST. 13:45 and 14:45 UTC give 9:45 a.m. New York time in either; the extra run is a free refresh.
+
+## Web
+
+### Pages render per request; the default date follows the data
+- Why: `/` shows today in New York, unless the newest pipeline run is more than three days old (the seeded demo, the off-season), in which case it shows that run's date with a note. Any page takes `?date=`.
+
+### Charts are server-rendered SVG with native tooltips and a table twin
+- Why: no client JavaScript for charts on regular pages; every chart has its numbers in a table nearby (the line score under the quarter flow, the ratings table beside the scatter). Wide charts render a second, narrower version for phones instead of shrinking text.
+
+### Broadcast type for scores and big numbers
+- Why: the brief asks for a broadcast look, so scores and studio numbers use Big Shoulders Display (a condensed face drawn from Chicago signage); tables and labels use Archivo with tabular figures.
+- Trade-off: this departs from the generic dashboard advice to keep hero numbers in the text face.
+
+### Studio frames are pure components, exported with html-to-image at pixel ratio 1
+- Why: the editor preview, the full-size `/studio/frame` route and the PNG all render the same component, so what you see is what you post, at exactly 1080x1350, 1080x1920 or 1920x1080. Fonts come from the same origin, so the export embeds them.
+- Trade-off: html-to-image re-renders through an SVG foreignObject; exotic CSS (filters, backdrop blur) is avoided in frames.
+
+### Site pages live in a `(site)` route group, frames in `(bare)`
+- Why: `/studio/frame` must render with no header or footer for screenshots and headless exports; route groups keep URLs unchanged.
+
+### The studio handle comes from `NEXT_PUBLIC_BRAND_HANDLE`
+- Why: set it once in `.env` or on Vercel; each graphic can still override it, and the URL keeps the current choice. No browser storage needed.
+
+## Versions and environment notes
+
+### Next.js 16.4, React 19.3, TypeScript 5.9, ESLint 9
+- Why: current stable Next and React. TypeScript 7 (the native port) and ESLint 10 were the npm defaults at build time, but Next's build-time type check and `eslint-config-next`'s plugins are proven on TypeScript 5.x and ESLint 9; npm prints a deprecation note for ESLint 9.
+- Note: `next dev` writes `web/AGENTS.md` (agent notes from the Next.js team). It is committed so the working tree stays clean.
+
+### Smoke test uses the machine's Playwright, not a project dependency
+- Why: browsers are large and machine-specific. `web/scripts/smoke.mjs` loads `playwright` from the global install (`npm i -g playwright && npx playwright install chromium`), and CI installs it the same way.
+
+### Built in a sandbox without Docker, ESPN or Google Fonts
+- Postgres 16 ran from local binaries; `docker-compose.yml` uses the official `postgres:16` image and was not run here.
+- ESPN parsers are tested against saved and synthetic responses only; the first live run is the real test of `fetch_summary` and `fetch_injuries`.
