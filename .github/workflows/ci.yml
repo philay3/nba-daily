@@ -112,4 +112,5 @@ jobs:
         run: |
           npm run start -- -p 3000 &
           for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:3000/ && break; sleep 1; done
-          NODE_PATH="$(npm root -g)" npm run smoke
+          # pin the seeded day so the result does not depend on today's date
+          DATE=2026-11-02 GAME_ID=401909906 NODE_PATH="$(npm root -g)" npm run smoke
