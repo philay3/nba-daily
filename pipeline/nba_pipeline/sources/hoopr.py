@@ -1,4 +1,5 @@
-"""hoopR mirror of ESPN box scores: three season parquet files, or a local directory with the same names."""
+"""hoopR mirror of ESPN box scores: three season parquet files (plus an optional shot file), or a local
+directory with the same names."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -44,3 +45,29 @@ def season_paths(season: int, source_dir: Path | None = None, cache_dir: Path = 
 
 def read_season(paths: dict[str, Path]) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     return pd.read_parquet(paths["pb"]), pd.read_parquet(paths["tb"]), pd.read_parquet(paths["sc"])
+
+
+# One row per shot of the season, free throws included (built from ESPN's play-by-play). Optional: a run
+# carries on without it, because the box scores do not depend on it.
+SHOTS = "shots/parquet/shots_{season}.parquet"
+
+
+def shots_path(season: int, source_dir: Path | None = None, cache_dir: Path = CACHE_DIR) -> Path | None:
+    """The season's shot file from source_dir, or freshly downloaded into the cache. None when there is none."""
+    name = Path(SHOTS.format(season=season)).name
+    if source_dir is not None:
+        p = Path(source_dir) / name
+        return p if p.exists() else None
+    out = Path(cache_dir) / "hoopr" / str(season)
+    out.mkdir(parents=True, exist_ok=True)
+    with http_client() as client:
+        r = get_with_retry(client, f"{HOOPR_DATA}/{SHOTS.format(season=season)}")
+    if r is None:
+        return None
+    p = out / name
+    p.write_bytes(r.content)
+    return p
+
+
+def read_shots(path: Path | None) -> pd.DataFrame | None:
+    return pd.read_parquet(path) if path is not None else None
