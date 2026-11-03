@@ -37,6 +37,10 @@ mkdirSync(exportDir, { recursive: true });
 
 const SIZES = { feed: [1080, 1350], story: [1080, 1920], youtube: [1920, 1080] };
 const TEMPLATES = ["player", "matchup", "league", "recap"];
+const addDaysIso = (iso, n) => {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+};
 const withDate = (path) => (DATE ? `${path}${path.includes("?") ? "&" : "?"}date=${DATE}` : path);
 
 const failures = [];
@@ -73,6 +77,25 @@ await (await open(withDate("/"), { width: 390, height: 844, shot: "today-390.png
 await (await open("/?date=2026-11-03")).close(); // Election Day: no games
 await (await open("/?date=2026-11-03", { width: 390, height: 844 })).close();
 
+// any date this season: a past day's finals, the look-ahead 2 days out, the schedule a week out, out of season
+const ahead = DATE ? addDaysIso(DATE, 2) : "";
+const later = DATE ? addDaysIso(DATE, 5) : "";
+const before = DATE ? addDaysIso(DATE, -1) : "";
+for (const [path, shot] of [
+  [before && `/?date=${before}`, "day-past"],
+  [ahead && `/?date=${ahead}`, "day-ahead"],
+  [later && `/?date=${later}`, "day-schedule"],
+  ["/?date=2027-07-01", null],
+]) {
+  if (!path) continue;
+  const page = await open(path, { shot: shot && `${shot}-1440.png` });
+  if (shot === "day-past" && !(await page.locator('a[href^="/games/"]').count())) failures.push(`${path}: no links to game pages`);
+  if (shot === "day-ahead" && !(await page.locator("#matchup").count())) failures.push(`${path}: no matchup breakdown`);
+  if (shot && shot !== "day-past" && !(await page.locator("#week-ahead").count())) failures.push(`${path}: no week view`);
+  await page.close();
+  await (await open(path, { width: 390, height: 844, shot: shot && `${shot}-390.png` })).close();
+}
+
 if (gameHref) {
   await (await open(gameHref, { shot: "game-1440.png" })).close();
   await (await open(gameHref, { width: 390, height: 844, shot: "game-390.png" })).close();
@@ -87,6 +110,8 @@ for (const path of ["/teams", "/teams/LAL", "/players", playerHref, "/standings"
 if (SHOTS) {
   await (await open(withDate("/teams"), { shot: "teams-1440.png" })).close();
   await (await open(withDate("/studio"), { shot: "studio-1440.png", fullPage: false })).close();
+  // the matchup preview for a game two days out
+  if (DATE) await (await open(`/studio/frame?date=${DATE}&t=matchup&size=feed&game=401909933`, { width: 1080, height: 1350, checkScroll: false, fullPage: false, shot: "studio-matchup-ahead-feed.png" })).close();
 }
 
 // a missing game must 404, not crash
