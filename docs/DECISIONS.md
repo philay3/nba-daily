@@ -124,6 +124,40 @@ Short entries: the decision, why, and the trade-off. Newest at the bottom of eac
 - Why: every zone table compares with the league. Storing the league's FG%, points per shot and share beside each row, plus the gap between the two printed FG% values, keeps that math in Python, where tests cover it; the web only prints.
 - Trade-off: the league numbers are repeated on every row (a few thousand rows a season).
 
+## Play-by-play
+
+### Read the play-by-play every run, store only what is computed from it
+- Why: the season file is about 600,000 plays (20 MB as parquet), and Neon's free plan is 1 GB. The run downloads it, rebuilds who was on the floor, and keeps seven small tables (19 MB for a full season, measured on 2025-26). The worm chart is one row per game with three arrays (time, road score, home score) instead of a row per basket.
+- Trade-off: a new question about plays (a stat the tables do not hold) means a pipeline change and a rerun, not a SQL query. Every run rebuilds the season's play-by-play tables, about 25 seconds late in a season.
+
+### Plays in game_play_number order
+- Why: `sequence_number` is ESPN's edit order; a play corrected later gets a high number and sorts after plays that followed it. `game_play_number` follows the game clock, and in it the running score is consistent on every row.
+- Trade-off: within one clock time, an edited row can still land a play or two late (a substitution after the free throws it came before). The lineup rebuild absorbs most of these; the rest show up in the plus-minus check.
+
+### Rebuild lineups by reading each team-period the most consistent way
+- Why: the feed never lists period starters, and ESPN's substitution rows are sometimes wrong (both the original and the corrected row kept, the wrong player named leaving, nobody named). A plain "first appearance" rule failed on 5 of the first 107 games this season. Scoring candidate readings by contradictions (rows that cannot apply, dropped rows, plays naming a benched player) fixes them; box-score minutes only break exact ties. On 2025-26, 26,597 of 26,599 player-games come within a minute of the box score.
+- Trade-off: a substitution ESPN never logged leaves no trace to repair. Those games are reported by the minutes check (one this season so far, one all of last season), and their lineups are kept as the feed tells them.
+
+### Free throws count for the lineup on the floor at the foul
+- Why: that is how the box score's plus-minus is kept. Crediting the lineup at the shot matched it in about 4 player-games in 10 on 2025-26; crediting the lineup at the foul matches 98.8%, which makes plus-minus a working check on the rebuild.
+- Trade-off: a stretch can be credited free throws taken after it ended. Its seconds stay correct; only the points move.
+
+### Lineup possessions use the app's estimate, per stretch of play
+- Why: FGA - OREB + TOV + 0.44 x FTA, averaged for both teams, is how the team ratings count possessions, so a lineup's net rating reads on the same scale as its team's. Summed over a game, the stretches land within 1 possession of the box score's figure on the fixture day. Missed heaves are left out of attempts because ESPN's box score leaves them out.
+- Trade-off: it is an estimate; counting possessions play by play would differ slightly, most in short stretches. Lineups show only with 50 possessions or more.
+
+### "Off the floor" means his team's time without him in the games he played
+- Why: it compares like with like (same opponents, same nights) and does not charge a player for games he missed.
+- Trade-off: a player who plays almost every minute has a small off sample; the tables show minutes and grey out fewer than 50 possessions.
+
+### Clutch time is a state of the game clock and the score
+- Why: the usual definition (last 5 minutes of the 4th or overtime, margin within 5). A play counts when the margin before it is within 5, so the basket that stretches a 5-point game to 7 is clutch; clutch minutes are the stretches of clock in that state.
+- Trade-off: early in a season the samples are a few minutes a team; every figure is shown with its games and minutes.
+
+### The play-by-play step stands apart from the engine
+- Why: it runs after the box-score engine's checks and cannot change the golden files. A missing file leaves the play-by-play tables as they were; a failure is recorded and the box scores still load. Its messages start with "play-by-play:", and the parity test checks only the engine's own warnings (the play-by-play tests pin the one known gap on the fixture day).
+- Trade-off: two sets of checks to read in `pipeline_runs`.
+
 ## Web
 
 ### Any date this season, measured from the newest run
@@ -134,6 +168,9 @@ Short entries: the decision, why, and the trade-off. Newest at the bottom of eac
 
 ### Charts are server-rendered SVG with native tooltips and a table twin
 - Why: no client JavaScript for charts on regular pages; every chart has its numbers in a table nearby (the line score under the quarter flow, the ratings table beside the scatter). Wide charts render a second, narrower version for phones instead of shrinking text.
+
+### The game flow chart replaces the quarter chart when a game has play-by-play
+- Why: the margin after every basket shows everything the margin after each quarter does, and more; two flow charts on one page would repeat each other. The line score stays under it, scoring runs get their own table, and games without play-by-play keep the quarter chart. The studio's game recap keeps the quarter chart; the new Game flow template carries the full worm.
 
 ### Broadcast type for scores and big numbers
 - Why: the brief asks for a broadcast look, so scores and studio numbers use Big Shoulders Display (a condensed face drawn from Chicago signage); tables and labels use Archivo with tabular figures.

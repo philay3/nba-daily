@@ -20,7 +20,7 @@ GitHub Actions (daily cron) ──writes──> Neon Postgres <──reads──
    ```
    To show the demo day instead, run `python3 -m nba_pipeline seed`.
 
-Storage: about 50 MB per full season (box scores, gaps and deltas for every game). The free plan allows 1 GB per project, and writes stop if a project goes over. Free compute scales to zero after a few idle minutes; the first page view after that takes about a second longer. Limits change, so check https://neon.tech/pricing.
+Storage: roughly 100 MB per full season. Measured on 2025-26: about 50 MB for box scores, gaps, deltas and the play-by-play tables (19 MB of that: game flow, runs, lineups, on/off, clutch; raw plays are never stored), plus about 45 MB of shots (docs/DATA.md). The free plan allows 1 GB per project, and writes stop if a project goes over. Free compute scales to zero after a few idle minutes; the first page view after that takes about a second longer. Limits change, so check https://neon.tech/pricing.
 
 ## 2. Vercel (web app)
 
