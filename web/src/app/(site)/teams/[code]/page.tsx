@@ -3,10 +3,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { Columns } from "@/components/charts/Bars";
+import { coverageNote, ShotPanel, ZoneCompare } from "@/components/shots/ShotPanel";
 import { accentOf, NoDatabase, PmBar, SectionHead } from "@/components/ui/bits";
 import { DatabaseNotConfigured } from "@/db/client";
 import { getTeamPage, resolveDay } from "@/lib/data";
-import { f1, monthDay, ordinal, seasonLabel, signed, signedInt, timeET } from "@/lib/format";
+import { CHART } from "@/lib/colors";
+import { addDays, f1, monthDay, ordinal, seasonLabel, signed, signedInt, timeET } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +29,7 @@ function Big({ label, value, rank }: { label: string; value: string; rank?: numb
   );
 }
 
-export default async function TeamPage({ params, searchParams }: { params: Params; searchParams: Promise<{ date?: string }> }) {
+export default async function TeamPage({ params, searchParams }: { params: Params; searchParams: Promise<{ date?: string; shots?: string }> }) {
   const { code: raw } = await params;
   const code = raw.toUpperCase();
   const sp = await searchParams;
@@ -40,8 +42,11 @@ export default async function TeamPage({ params, searchParams }: { params: Param
     throw e;
   }
   if (!data) notFound();
-  const { team, teams, row, log, roster, upcoming, season } = data;
+  const { team, teams, row, log, roster, upcoming, season, shots, zones } = data;
   const accent = accentOf(team);
+  const view = sp.shots === "dots" ? "dots" : "hex"; // a season of shots reads best as hexes
+  const asOf = zones[0]?.as_of;
+  const side = (s: string) => zones.filter((z) => z.side === s);
   const r = row as unknown as Record<string, number | null> | null;
   const factors: [string, string, string, string][] = [
     ["Effective FG %", "efg", "Opponent effective FG %", "opp_efg"],
@@ -136,6 +141,46 @@ export default async function TeamPage({ params, searchParams }: { params: Param
                 avgLabel={`Season ${signed(row?.net)}`}
               />
             </div>
+          </div>
+        </section>
+      ) : null}
+
+      {zones.length ? (
+        <section>
+          <SectionHead title="Shot profile">
+            Where the {team.nickname} shoot, and where opponents shoot against them, this season{asOf ? ` through ${monthDay(addDays(asOf, -1))}` : ""}. The second
+            view sizes each spot by attempts and colors it by FG% from that zone against the league average.
+          </SectionHead>
+          <div className="grid gap-5 lg:grid-cols-2">
+            <ShotPanel
+              table={false}
+              label={`${team.display_name} offense`}
+              head={<h3 className="text-[15px] font-semibold">Offense: their shots</h3>}
+              shots={shots.offense}
+              zones={side("offense")}
+              madeColor={accent}
+              initial={view}
+              note={coverageNote(shots.offense.length, log.reduce((n, { tg }) => n + tg.fga, 0))}
+            />
+            <ShotPanel
+              table={false}
+              label={`${team.display_name} defense`}
+              head={<h3 className="text-[15px] font-semibold">Defense: opponents&apos; shots</h3>}
+              shots={shots.defense}
+              zones={side("defense")}
+              madeColor={CHART.ink2}
+              initial={view}
+              note={`${shots.defense.length} opponent shots in ${log.length} games. Below the league here is good defense.`}
+            />
+          </div>
+          <div className="mt-5">
+            <ZoneCompare
+              caption={`${team.display_name} shots by zone on offense and defense, against the league`}
+              sides={[
+                { label: "Offense", rows: side("offense") },
+                { label: "Defense: opponents", rows: side("defense") },
+              ]}
+            />
           </div>
         </section>
       ) : null}

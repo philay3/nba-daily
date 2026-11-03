@@ -3,10 +3,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { Columns } from "@/components/charts/Bars";
+import { coverageNote, ShotPanel } from "@/components/shots/ShotPanel";
 import { accentOf, DeltaMark, NoDatabase, PmBar, SectionHead } from "@/components/ui/bits";
 import { DatabaseNotConfigured } from "@/db/client";
 import { getPlayerPage, resolveDay } from "@/lib/data";
-import { f1, monthDay, seasonLabel, signed, signedInt } from "@/lib/format";
+import { addDays, f1, monthDay, seasonLabel, signed, signedInt } from "@/lib/format";
+import { shotTitle } from "@/lib/shots";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +28,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-export default async function PlayerPage({ params, searchParams }: { params: Params; searchParams: Promise<{ date?: string }> }) {
+export default async function PlayerPage({ params, searchParams }: { params: Params; searchParams: Promise<{ date?: string; shots?: string }> }) {
   const { id } = await params;
   const pid = Number(id);
   if (!Number.isFinite(pid)) notFound();
@@ -40,8 +42,10 @@ export default async function PlayerPage({ params, searchParams }: { params: Par
     throw e;
   }
   if (!data) notFound();
-  const { player, teams, row, log, season } = data;
+  const { player, teams, row, log, season, shots, zones } = data;
   const team = teams.get(row?.team_code ?? player.team_code ?? "");
+  const asOf = zones[0]?.as_of;
+  const fga = log.filter(({ g }) => !asOf || g.game_date < asOf).reduce((n, { pg }) => n + (pg.fga ?? 0), 0);
   const games = log.filter(({ pg }) => !pg.did_not_play && (pg.min ?? 0) > 0);
   const maxAbs = Math.max(1, ...games.map(({ pg }) => Math.abs(pg.plus_minus ?? 0)));
   return (
@@ -76,6 +80,24 @@ export default async function PlayerPage({ params, searchParams }: { params: Par
           <p className="text-muted">No games this season.</p>
         )}
       </header>
+
+      {zones.length ? (
+        <section>
+          <SectionHead title="Shot chart">
+            Every field goal attempt this season{asOf ? ` through ${monthDay(addDays(asOf, -1))}` : ""}, basket at the top. The second view sizes each spot by his attempts
+            and colors it by his FG% from that zone against the league average.
+          </SectionHead>
+          <ShotPanel
+            wide
+            label={`${player.name} shots`}
+            shots={shots.map((s) => ({ ...s, title: `${monthDay(s.game_date)} vs ${s.opp_code}: ${shotTitle(s)}` }))}
+            zones={zones}
+            madeColor={accentOf(team)}
+            initial={sp.shots === "hex" ? "hex" : "dots"}
+            note={coverageNote(shots.length, fga)}
+          />
+        </section>
+      ) : null}
 
       {games.length ? (
         <section className="grid gap-5 lg:grid-cols-2">
