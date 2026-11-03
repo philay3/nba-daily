@@ -15,6 +15,7 @@ pytestmark = pytest.mark.db
 EXPECTED_COUNTS = {
     "teams": 30, "players": 461, "games": 1200, "team_games": 184, "player_games": 2509, "team_season": 30,
     "player_season": 442, "game_gaps": 2300, "player_game_deltas": 2072, "odds": 15, "injuries": 100, "editorial": 28,
+    "game_previews": 29,
 }
 
 
@@ -87,6 +88,33 @@ def test_injuries_link_to_players_and_games(conn):
     assert (r["matched"], unmatched) == (57, 43)
 
 
+def test_past_dates_match_the_box_scores(conn):
+    """Every date before the run: each final in `games` carries the box-score points of both teams and the winner."""
+    rows = conn.execute("""
+        SELECT g.id, g.away_score, g.home_score, g.winner_code, a.pts AS a_pts, h.pts AS h_pts,
+               CASE WHEN a.pts > h.pts THEN g.away_code ELSE g.home_code END AS box_winner
+        FROM games g
+        JOIN team_games a ON a.game_id = g.id AND a.team_code = g.away_code
+        JOIN team_games h ON h.game_id = g.id AND h.team_code = g.home_code
+        WHERE g.game_date < '2026-11-02'""").fetchall()
+    assert len(rows) == 92
+    for r in rows:
+        assert (r["away_score"], r["home_score"]) == (r["a_pts"], r["h_pts"]), r["id"]
+        assert r["winner_code"] == r["box_winner"], r["id"]
+    # and every final on the schedule before the run has its box score
+    assert one(conn, "SELECT count(*) AS n FROM games WHERE status = 'STATUS_FINAL' AND game_date < '2026-11-02' "
+                     "AND id NOT IN (SELECT game_id FROM team_games)")["n"] == 0
+
+
+def test_previews_cover_the_next_three_days(conn):
+    rows = conn.execute("SELECT game_date, count(*) AS n FROM game_previews WHERE snapshot_date = '2026-11-02' "
+                        "GROUP BY game_date ORDER BY game_date").fetchall()
+    sched = conn.execute("SELECT game_date, count(*) AS n FROM games WHERE game_date BETWEEN '2026-11-02' AND '2026-11-04' "
+                         "GROUP BY game_date ORDER BY game_date").fetchall()
+    assert rows == sched
+    assert [(str(r["game_date"]), r["n"]) for r in rows] == [("2026-11-02", 15), ("2026-11-04", 14)]
+
+
 def test_official_seeds_applied(conn):
     assert one(conn, "SELECT seed, record_seed, seed_source FROM team_season WHERE team_code = 'BOS'") == \
         {"seed": 3, "record_seed": 2, "seed_source": "official"}
@@ -96,6 +124,9 @@ def test_seed_is_idempotent(seeded_db):
     from nba_pipeline.run import seed
     with psycopg.connect(seeded_db, row_factory=dict_row, autocommit=True) as c:
         before = {t: one(c, f"SELECT count(*) AS n FROM {t}")["n"] for t in EXPECTED_COUNTS}
+        # a game ESPN has since taken off the schedule: the next run removes it
+        c.execute("INSERT INTO games (id, season, season_type, game_date, code, away_code, home_code, status) "
+                  "VALUES (1, 2027, 2, '2026-12-01', 'BOS@NYK', 'BOS', 'NYK', 'STATUS_SCHEDULED')")
     res = seed(FIXTURES_DIR, migrate_first=True, database_url=seeded_db)
     assert res.errors == []
     with psycopg.connect(seeded_db, row_factory=dict_row, autocommit=True) as c:
@@ -103,6 +134,7 @@ def test_seed_is_idempotent(seeded_db):
         runs = c.execute("SELECT status FROM pipeline_runs ORDER BY id").fetchall()
         assert migrate(c) == []  # nothing pending
     assert before == after == EXPECTED_COUNTS
+    assert res.counts["games_removed"] == 1
     assert [r["status"] for r in runs] == ["ok", "ok"]
 
 
