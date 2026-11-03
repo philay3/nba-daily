@@ -98,7 +98,20 @@ Short entries: the decision, why, and the trade-off. Newest at the bottom of eac
 - Golden files: regenerated with `cd pipeline && python3 -I tests/regen_golden.py`. Only these fields changed: `pts_off_to` in `box_teams`, the four points off turnovers rows in `box_compare` (the two sides swap and the edge flips; z, gap and level stay the same), and `pts_off_to_pg`, `opp_pts_off_to_pg` and their ranks in `team_season`. The other seven files and `digest.txt` are byte for byte the same.
 - Trade-off: the golden files are now the original engine's output plus this fix, and `docs/reference/nba_build.py` keeps the old reading for the record. Stored data needs no migration: every run upserts all of the season's `team_games` rows and rebuilds `team_season` and `game_gaps`, so the next run corrects them.
 
+### The 3-day look-ahead is a dated snapshot table (`game_previews`)
+- Why: tomorrow's matchup must be complete before the next run, so each run stores, for its date and the two days after, the records, rest, back-to-backs and missing scoring it saw, with the date of the injury report behind them. The web shows a future date from the newest run's rows, so the numbers on screen are the ones the checks verified.
+- Trade-off: records and season ranks for the day after tomorrow do not yet include tomorrow's results. The page says what date the numbers run through.
+
+### Rest after tonight from the schedule, up to tonight from games played
+- Why: a back-to-back must show before either game is played, which only the schedule can tell. Tonight and earlier keep the engine's rule (games played), so the golden files do not change; a warning fires if the two disagree for tonight, which means a game before tonight is missing.
+
+### Odds and injuries for 3 days in the daily job
+- Why: lines often post a day or two before tip. Fetching every game in the window costs about 20 to 45 ESPN requests a run, one at a time. The dashboard's `injuries.json` keeps tonight's teams only, so the old shapes do not change.
+
 ## Web
+
+### Any date this season, measured from the newest run
+- Why: the newest run is the data's "today". Before it, a date shows final scores linking to each game page; from it and two days on, the full matchup breakdown; after that, the schedule. The date picker is a plain GET form (`?date=YYYY-MM-DD`), so it needs no client JavaScript and the URL stays shareable.
 
 ### Pages render per request; the default date follows the data
 - Why: `/` shows today in New York, unless the newest pipeline run is more than three days old (the seeded demo, the off-season), in which case it shows that run's date with a note. Any page takes `?date=`.
