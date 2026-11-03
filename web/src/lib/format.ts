@@ -115,3 +115,15 @@ export function seasonLabel(season: number | null | undefined): string {
   if (!season) return "";
   return `${season - 1}-${String(season).slice(2)}`;
 }
+
+/** A game's tip time in New York, or "TBD" while ESPN has the date but not the time. */
+export function tipTime(g: { tip: string | Date | null | undefined; time_valid?: boolean | null }): string {
+  return g.time_valid === false ? "TBD" : timeET(g.tip);
+}
+
+/** "Tonight", "Tomorrow", or the weekday, measured from `today`. */
+export function dayWord(day: string, today: string): string {
+  if (day === today) return "Tonight";
+  if (day === addDays(today, 1)) return "Tomorrow";
+  return utc(day).toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" });
+}
