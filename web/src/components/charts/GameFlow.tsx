@@ -55,7 +55,9 @@ export function GameFlowChart({
   const last = pts[pts.length - 1];
   const series = [...pts, { ...last, t: end }];
   const endLabel = last.m === 0 ? "Tied" : `${last.m > 0 ? away : home} +${Math.abs(last.m)}`;
-  const left = Math.round(font * 2.6);
+  // side keys (team code with its stripe) sit at the far left, the margin labels between them and the plot
+  const keyW = Math.max(away.length, home.length) * font * 0.62 + 7;
+  const left = Math.round(keyW + font * 2.2);
   const right = Math.round(endLabel.length * font * 0.62 + font);
   const track = runs.length ? Math.round(font * 2.4) : 0;
   const top = track + Math.round(font * 0.8);

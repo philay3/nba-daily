@@ -4,12 +4,14 @@
  * full-size /studio/frame route and in the PNG export.
  */
 import { Columns } from "@/components/charts/Bars";
+import { GameFlowChart } from "@/components/charts/GameFlow";
 import { OffDefScatter, type ScatterTeam } from "@/components/charts/OffDefScatter";
 import { QuarterFlow } from "@/components/charts/QuarterFlow";
 import { ShotChart } from "@/components/charts/ShotChart";
+import { duration } from "@/lib/flow";
 import { f1, longDate, monthDay, ordinal, signed } from "@/lib/format";
 import { COURT, ZONE_LABEL, type ZoneKey } from "@/lib/shots";
-import type { SizeKey, StudioMatchup, StudioPlayerLine, StudioRecap, StudioShotChart, StudioTeam } from "@/lib/studio-types";
+import type { SizeKey, StudioFlow, StudioMatchup, StudioPlayerLine, StudioRecap, StudioShotChart, StudioTeam } from "@/lib/studio-types";
 import { SIZES } from "@/lib/studio-types";
 
 const C = {
@@ -884,6 +886,133 @@ export function ShotChartCard({ c, teams, size, handle }: { c: StudioShotChart; 
           {legend}
         </div>
         {story ? table : strip}
+      </div>
+    </Frame>
+  );
+}
+
+/* ------------------------------------------------------------------ 6. game flow */
+
+export function GameFlowCard({ f, teams, size, handle }: { f: StudioFlow; teams: Record<string, StudioTeam>; size: SizeKey; handle: string }) {
+  const { w, h } = SIZES[size];
+  const landscape = w > h;
+  const story = size === "story";
+  const u = landscape ? h / 1080 : w / 1080;
+  const pad = 72 * u;
+  const A = teams[f.away] ?? MISSING_TEAM;
+  const H = teams[f.home] ?? MISSING_TEAM;
+  const final = f.ot ? (f.ot === 1 ? "Final, overtime" : `Final, ${f.ot} overtimes`) : "Final";
+  const header = (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 24 * u }}>
+      <Label u={u}>Game flow</Label>
+      <span style={{ fontSize: 26 * u, color: C.ink2 }}>
+        {longDate(f.date)}, {final.toLowerCase()}
+      </span>
+    </div>
+  );
+  const side = (t: StudioTeam, code: string, score: number, right: boolean) => (
+    <div style={{ display: "flex", flexDirection: right ? "row-reverse" : "row", alignItems: "center", gap: 22 * u, opacity: f.winner === code ? 1 : 0.62 }}>
+      <div style={{ width: 14 * u, alignSelf: "stretch", background: t.accent, borderRadius: 3 * u }} />
+      <div style={{ display: "grid", justifyItems: right ? "end" : "start" }}>
+        <span style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: 88 * u, lineHeight: 0.85 }}>{code}</span>
+        <span style={{ fontSize: 24 * u, color: C.ink2 }}>{t.nickname}</span>
+      </div>
+      <span style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: 140 * u, lineHeight: 0.8 }}>{score}</span>
+    </div>
+  );
+  const scores = landscape ? (
+    <div style={{ display: "grid", gap: 22 * u }}>
+      {side(A, f.away, f.away_score, false)}
+      {side(H, f.home, f.home_score, false)}
+    </div>
+  ) : (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", alignItems: "center", gap: 24 * u }}>
+      {side(A, f.away, f.away_score, false)}
+      {side(H, f.home, f.home_score, true)}
+    </div>
+  );
+  const chartW = landscape ? 1080 * u : w - pad * 2;
+  const chartH = (landscape ? 760 : story ? 820 : 450) * u;
+  const chart = (
+    <div style={{ display: "grid", gap: 10 * u }}>
+      <span style={{ fontSize: 24 * u, color: C.ink2 }}>
+        Score margin after every basket. Above the line {f.away} led, below it {f.home} led.
+      </span>
+      <GameFlowChart
+        away={f.away}
+        home={f.home}
+        t={f.t}
+        awayScores={f.away_pts}
+        homeScores={f.home_pts}
+        periods={f.periods}
+        awayColor={A.accent}
+        homeColor={H.accent}
+        runs={f.runs}
+        labelRuns={story || landscape ? 3 : 2}
+        width={chartW}
+        height={chartH}
+        font={(landscape ? 22 : 24) * u}
+        surface={C.surface}
+      />
+    </div>
+  );
+  const facts: [string, string][] = [
+    ["Lead changes", String(f.lead_changes)],
+    ["Times tied", String(f.times_tied)],
+    [`${f.away} led for`, duration(f.away_lead_secs)],
+    [`${f.home} led for`, duration(f.home_lead_secs)],
+  ];
+  const factRow = (
+    <div style={{ display: "grid", gridTemplateColumns: landscape ? "1fr 1fr" : "repeat(4, 1fr)", gap: `${22 * u}px ${24 * u}px`, borderTop: `2px solid ${C.line}`, paddingTop: 22 * u }}>
+      {facts.map(([label, v]) => (
+        <div key={label} style={{ display: "grid", gap: 4 * u }}>
+          <span style={{ fontSize: 22 * u, color: C.muted }}>{label}</span>
+          <span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 64 * u, lineHeight: 1 }}>{v}</span>
+        </div>
+      ))}
+    </div>
+  );
+  const top = [...f.runs].sort((a, b) => b.pts - a.pts || a.start_t - b.start_t).slice(0, story ? 4 : landscape ? 3 : 2);
+  const runs = top.length ? (
+    <div style={{ display: "grid", gap: 14 * u }}>
+      <span style={{ fontSize: 24 * u, color: C.ink2 }}>Biggest runs</span>
+      {top.map((r) => (
+        <div key={`${r.team}-${r.start_t}`} style={{ display: "grid", gridTemplateColumns: `${10 * u}px auto 1fr`, alignItems: "center", gap: 18 * u }}>
+          <div style={{ alignSelf: "stretch", background: (teams[r.team] ?? MISSING_TEAM).accent, borderRadius: 3 * u }} />
+          <span style={{ fontFamily: DISPLAY, fontWeight: 850, fontSize: 52 * u, lineHeight: 1 }}>
+            {r.team} {r.pts}-0
+          </span>
+          <span style={{ fontSize: 24 * u, color: C.ink2, textAlign: "right" }}>
+            {r.from} to {r.to}, {r.score_from} to {r.score_to}
+          </span>
+        </div>
+      ))}
+    </div>
+  ) : null;
+  const stamp = `${monthDay(f.date)} ${f.away} at ${f.home}`;
+  if (landscape) {
+    return (
+      <Frame size={size} handle={handle} bands={[A, H]} stamp={stamp}>
+        <div style={{ position: "absolute", inset: `${52 * u}px ${pad}px ${28 * u}px`, display: "grid", gridTemplateColumns: `1fr ${chartW}px`, gap: 64 * u }}>
+          <div style={{ display: "grid", alignContent: "space-between", gap: 24 * u }}>
+            {header}
+            {scores}
+            {factRow}
+            {runs}
+          </div>
+          <div style={{ alignSelf: "center" }}>{chart}</div>
+        </div>
+      </Frame>
+    );
+  }
+  return (
+    <Frame size={size} handle={handle} bands={[A, H]} stamp={stamp}>
+      <div style={{ position: "absolute", inset: `${56 * u}px ${pad}px ${32 * u}px`, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 24 * u }}>
+        {header}
+        {scores}
+        {chart}
+        {factRow}
+        {runs}
       </div>
     </Frame>
   );
