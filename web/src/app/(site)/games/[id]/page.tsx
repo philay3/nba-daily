@@ -2,12 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { GameFlowChart, type FlowRun } from "@/components/charts/GameFlow";
 import { QuarterFlow } from "@/components/charts/QuarterFlow";
 import { BoxScore } from "@/components/game/BoxScore";
 import { coverageNote, ShotPanel, ZoneCompare } from "@/components/shots/ShotPanel";
 import { accentOf, Empty, NoDatabase, SectionHead, StatusBadge, TeamMark } from "@/components/ui/bits";
 import { DatabaseNotConfigured } from "@/db/client";
-import { getGamePage, type Game, type Gap, type Team } from "@/lib/data";
+import { getGamePage, type Game, type GameFlow, type Gap, type ScoringRun, type Team } from "@/lib/data";
+import { duration, periodLabel } from "@/lib/flow";
 import { addDays, f1, longDate, ordinal, signed, timeET } from "@/lib/format";
 import { shotTitle } from "@/lib/shots";
 
@@ -77,6 +79,139 @@ function Side({ code, score, right, final, game, teams }: { code: string; score:
   );
 }
 
+function LineScore({ g, teams }: { g: Game; teams: Map<string, Team> }) {
+  return (
+    <div className="table-wrap">
+      <table className="data-table">
+        <caption className="sr-only">Score by period</caption>
+        <thead>
+          <tr>
+            <th>Team</th>
+            {g.away_periods.map((_, i) => (
+              <th key={i} className="r">
+                {i < 4 ? `Q${i + 1}` : i === 4 ? "OT" : `${i - 3}OT`}
+              </th>
+            ))}
+            <th className="r">Final</th>
+          </tr>
+        </thead>
+        <tbody>
+          {[
+            [g.away_code, g.away_periods, g.away_score],
+            [g.home_code, g.home_periods, g.home_score],
+          ].map(([code, per, score]) => (
+            <tr key={String(code)}>
+              <td>
+                <TeamMark team={teams.get(String(code))} code={String(code)} />
+              </td>
+              {(per as number[]).map((p, i) => (
+                <td key={i} className="r num">
+                  {p}
+                </td>
+              ))}
+              <td className="r num font-bold">{score as number}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function flowRuns(g: Game, runs: ScoringRun[]): FlowRun[] {
+  return runs.map((r) => ({ side: r.team_code === g.away_code ? "away" : "home", team: r.team_code, pts: r.pts, start_t: r.start_t, end_t: r.end_t }));
+}
+
+function FlowPanel({ g, flow, runs, teams }: { g: Game; flow: GameFlow; runs: ScoringRun[]; teams: Map<string, Team> }) {
+  const props = {
+    away: g.away_code,
+    home: g.home_code,
+    t: flow.t,
+    awayScores: flow.away,
+    homeScores: flow.home,
+    periods: flow.num_periods,
+    awayColor: accentOf(teams.get(g.away_code)),
+    homeColor: accentOf(teams.get(g.home_code)),
+    runs: flowRuns(g, runs),
+  };
+  return (
+    <section className="panel p-4 sm:p-6">
+      <h2 className="section-title text-[24px]">Game flow</h2>
+      <p className="note mb-4">
+        Score margin after every basket. Above the line {g.away_code} led, below it {g.home_code} led. Bars along the top mark scoring runs: 8 or more
+        points in a row, and each team&apos;s best run.
+      </p>
+      <div className="hidden sm:block">
+        <GameFlowChart {...props} width={1180} height={300} font={13} />
+      </div>
+      <div className="sm:hidden">
+        <GameFlowChart {...props} width={340} height={230} font={11} labelRuns={2} />
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <span className="chip num">
+          {g.away_code} led for {duration(flow.away_lead_secs)}
+        </span>
+        <span className="chip num">
+          {g.home_code} led for {duration(flow.home_lead_secs)}
+        </span>
+        <span className="chip num">Tied for {duration(flow.tied_secs)}</span>
+        <span className="chip num">{flow.times_tied === 1 ? "Tied once" : `Tied ${flow.times_tied} times`} after 0-0</span>
+        {flow.clutch_secs ? (
+          <span className="chip num" title="Last 5 minutes of the 4th quarter or overtime with the margin within 5">
+            Clutch time {duration(flow.clutch_secs)}
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-4">
+        <LineScore g={g} teams={teams} />
+      </div>
+    </section>
+  );
+}
+
+function RunsPanel({ g, runs, teams }: { g: Game; runs: ScoringRun[]; teams: Map<string, Team> }) {
+  return (
+    <div className="panel p-4 sm:p-6">
+      <h2 className="section-title text-[24px]">Scoring runs</h2>
+      <p className="note mb-4">Points in a row before the other team scored: every run of 8 or more, and each team&apos;s best run.</p>
+      <div className="table-wrap">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Team</th>
+              <th className="r">Run</th>
+              <th>From</th>
+              <th>To</th>
+              <th className="r">
+                Score ({g.away_code}-{g.home_code})
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {runs.map((r) => (
+              <tr key={r.seq}>
+                <td>
+                  <TeamMark team={teams.get(r.team_code)} code={r.team_code} />
+                </td>
+                <td className={`r num ${r.pts >= 10 ? "font-bold" : "font-semibold"}`}>{r.pts}-0</td>
+                <td className="num text-ink-2">
+                  {periodLabel(r.start_period)} {r.start_clock}
+                </td>
+                <td className="num text-ink-2">
+                  {periodLabel(r.end_period)} {r.end_clock}
+                </td>
+                <td className="r num">
+                  {r.away_before}-{r.home_before} to {r.away_after}-{r.home_after}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export default async function GamePage({ params, searchParams }: { params: Params; searchParams: Search }) {
   const { id } = await params;
   const view = (await searchParams).shots === "hex" ? "hex" : "dots";
@@ -90,7 +225,7 @@ export default async function GamePage({ params, searchParams }: { params: Param
     throw e;
   }
   if (!data) notFound();
-  const { game: g, teams, away, home, box, gaps, note, odds, injuries, teamSeason, shots, zones } = data;
+  const { game: g, teams, away, home, box, gaps, note, odds, injuries, teamSeason, shots, zones, flow, runs } = data;
   const a = teams.get(g.away_code);
   const h = teams.get(g.home_code);
   const final = g.status === "STATUS_FINAL" && away && home;
@@ -146,51 +281,25 @@ export default async function GamePage({ params, searchParams }: { params: Param
 
       {final ? (
         <>
+          {flow ? <FlowPanel g={g} flow={flow} runs={runs} teams={teams} /> : null}
           <section className="grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-            <div className="panel p-4 sm:p-6">
-              <h2 className="section-title text-[24px]">Quarter flow</h2>
-              <p className="note mb-4">Margin after each period. Above the line {g.away_code} led, below it {g.home_code} led.</p>
-              <div className="hidden sm:block">
-                <QuarterFlow away={g.away_code} home={g.home_code} awayPeriods={g.away_periods} homePeriods={g.home_periods} awayColor={ac} homeColor={hc} width={720} height={240} font={13} />
+            {flow ? (
+              <RunsPanel g={g} runs={runs} teams={teams} />
+            ) : (
+              <div className="panel p-4 sm:p-6">
+                <h2 className="section-title text-[24px]">Quarter flow</h2>
+                <p className="note mb-4">Margin after each period. Above the line {g.away_code} led, below it {g.home_code} led.</p>
+                <div className="hidden sm:block">
+                  <QuarterFlow away={g.away_code} home={g.home_code} awayPeriods={g.away_periods} homePeriods={g.home_periods} awayColor={ac} homeColor={hc} width={720} height={240} font={13} />
+                </div>
+                <div className="sm:hidden">
+                  <QuarterFlow away={g.away_code} home={g.home_code} awayPeriods={g.away_periods} homePeriods={g.home_periods} awayColor={ac} homeColor={hc} width={340} height={170} font={11} />
+                </div>
+                <div className="mt-4">
+                  <LineScore g={g} teams={teams} />
+                </div>
               </div>
-              <div className="sm:hidden">
-                <QuarterFlow away={g.away_code} home={g.home_code} awayPeriods={g.away_periods} homePeriods={g.home_periods} awayColor={ac} homeColor={hc} width={340} height={170} font={11} />
-              </div>
-              <div className="table-wrap mt-4">
-                <table className="data-table">
-                  <caption className="sr-only">Score by period</caption>
-                  <thead>
-                    <tr>
-                      <th>Team</th>
-                      {g.away_periods.map((_, i) => (
-                        <th key={i} className="r">
-                          {i < 4 ? `Q${i + 1}` : i === 4 ? "OT" : `${i - 3}OT`}
-                        </th>
-                      ))}
-                      <th className="r">Final</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[
-                      [g.away_code, g.away_periods, g.away_score],
-                      [g.home_code, g.home_periods, g.home_score],
-                    ].map(([code, per, score]) => (
-                      <tr key={String(code)}>
-                        <td>
-                          <TeamMark team={teams.get(String(code))} code={String(code)} />
-                        </td>
-                        {(per as number[]).map((p, i) => (
-                          <td key={i} className="r num">
-                            {p}
-                          </td>
-                        ))}
-                        <td className="r num font-bold">{score as number}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            )}
             <div className="panel p-4 sm:p-6">
               <h2 className="section-title text-[24px]">Where it was decided</h2>
               <p className="note mb-4">The biggest team gaps, measured against how far apart two teams usually are in a game this season. Major is 1.5 times the usual gap or more; notable is 1 time.</p>

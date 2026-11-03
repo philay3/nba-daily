@@ -162,6 +162,19 @@ export function Studio({ data, initial }: { data: StudioData; initial: StudioSel
             </select>
           </label>
         ) : null}
+        {sel.template === "flow" && data.flows.length ? (
+          <label className="grid gap-1.5 text-[13px] font-semibold text-ink-2">
+            Game (last night, most lead changes first)
+            <select className={field} value={sel.flow} onChange={(e) => set({ flow: e.target.value })}>
+              {data.flows.map((f) => (
+                <option key={f.code} value={f.code}>
+                  {f.away} {f.away_score}, {f.home} {f.home_score}
+                  {f.lead_changes ? ` (${f.lead_changes} lead changes)` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         {sel.template === "league" ? (
           <div className="grid grid-cols-2 gap-2">
             {[0, 1].map((i) => (

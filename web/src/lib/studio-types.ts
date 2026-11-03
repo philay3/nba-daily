@@ -134,6 +134,41 @@ export type StudioShotChart = {
   zones: { zone: string; fgm: number; fga: number; fg_pct: number | null; season_fg_pct: number | null; lg_fg_pct: number | null }[];
 };
 
+export type StudioFlowRun = {
+  side: "away" | "home";
+  team: string;
+  pts: number;
+  start_t: number;
+  end_t: number;
+  from: string; // "Q1 9:21"
+  to: string;
+  score_from: string; // "6-3", road team first
+  score_to: string;
+};
+
+export type StudioFlow = {
+  game_id: number;
+  code: string;
+  date: string;
+  away: string;
+  home: string;
+  away_score: number;
+  home_score: number;
+  winner: string;
+  ot: number;
+  periods: number;
+  t: number[]; // elapsed seconds at each scoring play
+  away_pts: number[]; // scores after each scoring play
+  home_pts: number[];
+  lead_changes: number;
+  times_tied: number;
+  away_largest_lead: number;
+  home_largest_lead: number;
+  away_lead_secs: number | null;
+  home_lead_secs: number | null;
+  runs: StudioFlowRun[];
+};
+
 export type StudioData = {
   day: string;
   yday: string;
@@ -142,6 +177,7 @@ export type StudioData = {
   players: StudioPlayerLine[];
   matchups: StudioMatchup[];
   recaps: StudioRecap[];
+  flows: StudioFlow[];
   league: ScatterTeam[];
   shotCharts: StudioShotChart[];
 };
@@ -160,6 +196,7 @@ export const TEMPLATES = {
   league: "League offense vs defense",
   recap: "Game recap",
   shots: "Shot chart",
+  flow: "Game flow",
 } as const;
 
 export type TemplateKey = keyof typeof TEMPLATES;
@@ -172,5 +209,6 @@ export type StudioSelection = {
   matchup?: string; // game id (a game code also works)
   recap?: string; // game code
   shot?: string; // StudioShotChart.key
+  flow?: string; // game code
   highlight?: string[]; // team codes
 };

@@ -6,6 +6,7 @@
  *
  *   BASE_URL=http://localhost:3000 npm run smoke
  *   SCREENSHOTS=1 DATE=2026-11-02 GAME_ID=401909906 PLAYER_ID=3945274 npm run smoke   # also refresh docs/screenshots
+ *   (TEAM, default LAL, and PLAYER_ID pick the team and player pages for the full-page screenshots)
  *
  * Uses the `playwright` package from the machine (not a project dependency):
  *   npm install -g playwright && npx playwright install chromium
@@ -36,7 +37,8 @@ if (SHOTS) mkdirSync(shotDir, { recursive: true });
 mkdirSync(exportDir, { recursive: true });
 
 const SIZES = { feed: [1080, 1350], story: [1080, 1920], youtube: [1920, 1080] };
-const TEMPLATES = ["player", "matchup", "league", "recap", "shots"];
+const TEMPLATES = ["player", "matchup", "league", "recap", "shots", "flow"];
+const TEAM = process.env.TEAM || "LAL";
 const addDaysIso = (iso, n) => {
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
@@ -114,9 +116,12 @@ if (gameHref) {
 } else {
   failures.push("no game link on the Today page");
 }
-for (const path of ["/teams", "/teams/LAL", "/players", playerHref, "/standings", "/injuries", "/injuries?show=out", "/studio"]) {
+// team and player pages carry the play-by-play sections (lineups, on/off, clutch): keep a screenshot of each
+const pageShots = { [`/teams/${TEAM}`]: "team-1440.png", [playerHref]: "player-1440.png" };
+// GSW has no lineup with 50 possessions on the seeded day: its page falls back to the most used units
+for (const path of ["/teams", `/teams/${TEAM}`, "/teams/GSW", "/players", playerHref, "/standings", "/injuries", "/injuries?show=out", "/studio"]) {
   if (!path) continue;
-  await (await open(withDate(path))).close();
+  await (await open(withDate(path), { shot: pageShots[path] })).close();
   await (await open(withDate(path), { width: 390, height: 844 })).close();
 }
 for (const path of ["/teams/LAL?shots=dots", playerHref ? `${playerHref}?shots=hex` : null]) {
@@ -160,6 +165,7 @@ const exportPlan = [
   ["league", "youtube"],
   ["recap", "feed"],
   ["shots", "story"],
+  ["flow", "youtube"],
 ];
 for (const [t, size] of exportPlan) {
   const page = await open(withDate(`/studio?t=${t}&size=${size}`), { checkScroll: false });

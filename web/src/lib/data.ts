@@ -24,6 +24,13 @@ export type LeagueZone = typeof t.league_shot_zones.$inferSelect;
 export type TeamZone = typeof t.team_shot_zones.$inferSelect;
 export type PlayerZone = typeof t.player_shot_zones.$inferSelect;
 export type GameZone = typeof t.game_shot_zones.$inferSelect;
+export type GameFlow = typeof t.game_flow.$inferSelect;
+export type ScoringRun = typeof t.game_runs.$inferSelect;
+export type LineupSeason = typeof t.lineup_season.$inferSelect;
+export type OnOff = typeof t.player_on_off.$inferSelect;
+export type TeamClutch = typeof t.team_clutch.$inferSelect;
+export type PlayerClutch = typeof t.player_clutch.$inferSelect;
+export type PlayerName = { id: number; name: string; short_name: string | null };
 
 export type BoxLine = PlayerGame & { delta: Delta | null };
 
@@ -163,6 +170,16 @@ export async function getBoxLines(gameIds: number[]): Promise<BoxLine[]> {
     .where(inArray(t.player_games.game_id, gameIds))
     .orderBy(asc(t.player_games.game_id), asc(t.player_games.team_code), asc(t.player_games.box_order));
   return rows.map((r) => ({ ...r.pg, delta: r.d }));
+}
+
+/** Names for player ids (lineups list ids only). */
+export async function getPlayerNames(ids: number[]): Promise<Map<number, PlayerName>> {
+  if (!ids.length) return new Map();
+  const rows = await getDb()
+    .select({ id: t.players.id, name: t.players.name, short_name: t.players.short_name })
+    .from(t.players)
+    .where(inArray(t.players.id, ids));
+  return new Map(rows.map((r) => [r.id, r]));
 }
 
 export async function getGaps(gameIds: number[]): Promise<Gap[]> {
@@ -344,7 +361,7 @@ export async function getGamePage(id: number) {
   const db = getDb();
   const [game] = await db.select().from(t.games).where(eq(t.games.id, id)).limit(1);
   if (!game) return null;
-  const [teams, teamGames, box, gaps, notes, odds, injuries, teamSeason, shots, zones] = await Promise.all([
+  const [teams, teamGames, box, gaps, notes, odds, injuries, teamSeason, shots, zones, flow, runs] = await Promise.all([
     getTeams(),
     getTeamGames([id]),
     getBoxLines([id]),
@@ -365,6 +382,8 @@ export async function getGamePage(id: number) {
       .where(eq(t.shots.game_id, id))
       .orderBy(asc(t.shots.seq)),
     db.select().from(t.game_shot_zones).where(eq(t.game_shot_zones.game_id, id)),
+    db.select().from(t.game_flow).where(eq(t.game_flow.game_id, id)).limit(1),
+    db.select().from(t.game_runs).where(eq(t.game_runs.game_id, id)).orderBy(asc(t.game_runs.seq)),
   ]);
   const side = (code: string) => teamGames.find((r) => r.team_code === code) ?? null;
   return {
@@ -380,6 +399,8 @@ export async function getGamePage(id: number) {
     teamSeason: new Map(teamSeason.map((r) => [r.team_code, r])),
     shots,
     zones,
+    flow: flow[0] ?? null,
+    runs,
   };
 }
 
@@ -407,8 +428,13 @@ export async function getTeamPage(code: string, day: string) {
       teamSeason: new Map<string, TeamSeason>(),
       shots: { offense: [], defense: [] },
       zones: [] as TeamZone[],
+      lineups: [] as LineupSeason[],
+      onOff: [] as OnOff[],
+      clutch: null as TeamClutch | null,
+      playerClutch: [] as PlayerClutch[],
+      names: new Map<number, PlayerName>(),
     };
-  const [teamSeason, log, roster, upcoming, offense, defense, zones] = await Promise.all([
+  const [teamSeason, log, roster, upcoming, offense, defense, zones, lineups, onOff, clutch, playerClutch] = await Promise.all([
     getTeamSeason(season),
     db
       .select({ tg: t.team_games, g: t.games })
@@ -433,9 +459,31 @@ export async function getTeamPage(code: string, day: string) {
     db.select(shotPoint).from(t.shots).where(and(eq(t.shots.season, season), eq(t.shots.team_code, code))),
     db.select(shotPoint).from(t.shots).where(and(eq(t.shots.season, season), eq(t.shots.opp_code, code))),
     db.select().from(t.team_shot_zones).where(and(eq(t.team_shot_zones.season, season), eq(t.team_shot_zones.team_code, code))),
+    db
+      .select()
+      .from(t.lineup_season)
+      .where(and(eq(t.lineup_season.season, season), eq(t.lineup_season.team_code, code)))
+      .orderBy(desc(t.lineup_season.poss)),
+    db
+      .select()
+      .from(t.player_on_off)
+      .where(and(eq(t.player_on_off.season, season), eq(t.player_on_off.team_code, code)))
+      .orderBy(desc(t.player_on_off.on_secs)),
+    db
+      .select()
+      .from(t.team_clutch)
+      .where(and(eq(t.team_clutch.season, season), eq(t.team_clutch.team_code, code)))
+      .limit(1),
+    db
+      .select()
+      .from(t.player_clutch)
+      .where(and(eq(t.player_clutch.season, season), eq(t.player_clutch.team_code, code)))
+      .orderBy(desc(t.player_clutch.pts), desc(t.player_clutch.secs)),
   ]);
   const ts = new Map(teamSeason.map((r) => [r.team_code, r]));
   const asOf = zones[0]?.as_of;
+  const ids = new Set<number>([...lineups.flatMap((l) => l.player_ids), ...onOff.map((r) => r.player_id), ...playerClutch.map((r) => r.player_id)]);
+  const names = await getPlayerNames([...ids]);
   return {
     team,
     teams,
@@ -447,6 +495,11 @@ export async function getTeamPage(code: string, day: string) {
     upcoming,
     shots: { offense: before(offense, asOf), defense: before(defense, asOf) },
     zones,
+    lineups,
+    onOff,
+    clutch: clutch[0] ?? null,
+    playerClutch,
+    names,
   };
 }
 
@@ -461,7 +514,7 @@ export async function getPlayerPage(id: number, day: string) {
   const [player] = await db.select().from(t.players).where(eq(t.players.id, id)).limit(1);
   if (!player) return null;
   const season = await seasonFor(day);
-  const [teams, seasonRow, log, shots, zones] = await Promise.all([
+  const [teams, seasonRow, log, shots, zones, onOff, clutch] = await Promise.all([
     getTeams(),
     season
       ? db.select().from(t.player_season).where(and(eq(t.player_season.season, season), eq(t.player_season.player_id, id))).limit(1)
@@ -486,8 +539,41 @@ export async function getPlayerPage(id: number, day: string) {
     season
       ? db.select().from(t.player_shot_zones).where(and(eq(t.player_shot_zones.season, season), eq(t.player_shot_zones.player_id, id)))
       : Promise.resolve([] as PlayerZone[]),
+    season
+      ? db
+          .select()
+          .from(t.player_on_off)
+          .where(and(eq(t.player_on_off.season, season), eq(t.player_on_off.player_id, id)))
+          .orderBy(desc(t.player_on_off.on_secs))
+      : Promise.resolve([] as OnOff[]),
+    season
+      ? db
+          .select()
+          .from(t.player_clutch)
+          .where(and(eq(t.player_clutch.season, season), eq(t.player_clutch.player_id, id)))
+          .orderBy(desc(t.player_clutch.secs))
+      : Promise.resolve([] as PlayerClutch[]),
   ]);
-  return { player, teams, season, row: seasonRow[0] ?? null, log, shots: before(shots, zones[0]?.as_of), zones };
+  const clutchTeams = [...new Set(clutch.map((r) => r.team_code))];
+  const teamClutch =
+    season && clutchTeams.length
+      ? await db
+          .select()
+          .from(t.team_clutch)
+          .where(and(eq(t.team_clutch.season, season), inArray(t.team_clutch.team_code, clutchTeams)))
+      : [];
+  return {
+    player,
+    teams,
+    season,
+    row: seasonRow[0] ?? null,
+    log,
+    onOff,
+    clutch,
+    teamClutch: new Map(teamClutch.map((r) => [r.team_code, r])),
+    shots: before(shots, zones[0]?.as_of),
+    zones,
+  };
 }
 
 export async function getStandings(day: string) {

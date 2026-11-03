@@ -6,9 +6,10 @@ import { getDb } from "@/db/client";
 import * as t from "@/db/schema";
 import { teamAccent } from "@/lib/colors";
 import { dayMode, getToday, played, type TodayData } from "@/lib/data";
+import { periodLabel } from "@/lib/flow";
 import { addDays, tipTime } from "@/lib/format";
 import { fgPct, ZONES, zoneCounts } from "@/lib/shots";
-import type { StudioData, StudioMatchup, StudioPlayerLine, StudioRecap, StudioShotChart, StudioTeam } from "@/lib/studio-types";
+import type { StudioData, StudioFlow, StudioMatchup, StudioPlayerLine, StudioRecap, StudioShotChart, StudioTeam } from "@/lib/studio-types";
 
 /** Everything the studio templates need for one date, as plain JSON. */
 export async function getStudioData(day: string): Promise<StudioData> {
@@ -134,6 +135,56 @@ export async function getStudioData(day: string): Promise<StudioData> {
     };
   });
 
+  // last night's games with play-by-play, the most back-and-forth first
+  const resultIds = d.results.map((r) => r.id);
+  const [flowRows, runRows] = resultIds.length
+    ? await Promise.all([
+        getDb().select().from(t.game_flow).where(inArray(t.game_flow.game_id, resultIds)),
+        getDb().select().from(t.game_runs).where(inArray(t.game_runs.game_id, resultIds)).orderBy(asc(t.game_runs.game_id), asc(t.game_runs.seq)),
+      ])
+    : [[], []];
+  const flowById = new Map(flowRows.map((f) => [f.game_id, f]));
+  const flows: StudioFlow[] = d.results
+    .filter((r) => flowById.has(r.id))
+    .map((r) => {
+      const f = flowById.get(r.id)!;
+      return {
+        game_id: r.id,
+        code: r.code,
+        date: r.game_date,
+        away: r.away_code,
+        home: r.home_code,
+        away_score: r.away_score ?? 0,
+        home_score: r.home_score ?? 0,
+        winner: r.winner_code ?? "",
+        ot: r.ot ?? 0,
+        periods: f.num_periods,
+        t: f.t,
+        away_pts: f.away,
+        home_pts: f.home,
+        lead_changes: f.lead_changes,
+        times_tied: f.times_tied,
+        away_largest_lead: f.away_largest_lead,
+        home_largest_lead: f.home_largest_lead,
+        away_lead_secs: f.away_lead_secs,
+        home_lead_secs: f.home_lead_secs,
+        runs: runRows
+          .filter((x) => x.game_id === r.id)
+          .map((x) => ({
+            side: x.team_code === r.away_code ? ("away" as const) : ("home" as const),
+            team: x.team_code,
+            pts: x.pts,
+            start_t: x.start_t,
+            end_t: x.end_t,
+            from: `${periodLabel(x.start_period)} ${x.start_clock}`,
+            to: `${periodLabel(x.end_period)} ${x.end_clock}`,
+            score_from: `${x.away_before}-${x.home_before}`,
+            score_to: `${x.away_after}-${x.home_after}`,
+          })),
+      };
+    })
+    .sort((a, b) => b.lead_changes - a.lead_changes || Math.abs(a.away_score - a.home_score) - Math.abs(b.away_score - b.home_score));
+
   const league = [...d.teamSeason.values()]
     .filter((r) => r.ortg != null && r.drtg != null)
     .map((r) => ({
@@ -152,7 +203,7 @@ export async function getStudioData(day: string): Promise<StudioData> {
 
   const shotCharts = await getShotCharts(d.lastNight.map((g) => g.id), d.season, lines, d.results);
 
-  return { day, yday: addDays(day, -1), season: d.season, teams, players, matchups, recaps, league, shotCharts };
+  return { day, yday: addDays(day, -1), season: d.season, teams, players, matchups, recaps, flows, league, shotCharts };
 }
 
 /** Last night's shots for every player who took one and for both teams of each game, top scorers first. */

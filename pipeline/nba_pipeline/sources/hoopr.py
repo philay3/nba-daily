@@ -1,5 +1,5 @@
-"""hoopR mirror of ESPN box scores: three season parquet files (plus an optional shot file), or a local
-directory with the same names."""
+"""hoopR mirror of ESPN data: three season box-score files, plus the season's play-by-play and an optional shot
+file, or a local directory with the same names."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -14,6 +14,7 @@ FILES = {
     "tb": "team_box/parquet/team_box_{season}.parquet",
     "sc": "schedules/parquet/nba_schedule_{season}.parquet",
 }
+PBP = "pbp/parquet/play_by_play_{season}.parquet"
 
 
 def file_names(season: int) -> dict[str, str]:
@@ -71,3 +72,21 @@ def shots_path(season: int, source_dir: Path | None = None, cache_dir: Path = CA
 
 def read_shots(path: Path | None) -> pd.DataFrame | None:
     return pd.read_parquet(path) if path is not None else None
+
+
+def pbp_path(season: int, source_dir: Path | None = None, cache_dir: Path = CACHE_DIR) -> Path | None:
+    """The season's play-by-play file (about 20 MB by the end of a season): from source_dir when it holds one,
+    otherwise downloaded. None when there is none, and the run carries on without the play-by-play tables."""
+    name = Path(PBP.format(season=season)).name
+    if source_dir is not None:
+        p = Path(source_dir) / name
+        return p if p.exists() else None
+    out = Path(cache_dir) / "hoopr" / str(season)
+    out.mkdir(parents=True, exist_ok=True)
+    with http_client() as client:
+        r = get_with_retry(client, f"{HOOPR_DATA}/{PBP.format(season=season)}")
+    if r is None:
+        return None
+    p = out / name
+    p.write_bytes(r.content)
+    return p

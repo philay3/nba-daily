@@ -561,6 +561,206 @@ export const game_shot_zones = pgTable(
   (t) => [primaryKey({ columns: [t.game_id, t.team_code, t.zone] })],
 );
 
+/* ------------------------------------------------------------------ play-by-play, computed (no raw plays are stored) */
+
+/**
+ * The score after every scoring play (the worm chart), with lead and clutch summaries.
+ * Times are elapsed game seconds: 0 at tip-off, 2880 at the end of regulation, +300 per overtime.
+ */
+export const game_flow = pgTable("game_flow", {
+  game_id: int("game_id")
+    .primaryKey()
+    .references(() => games.id, { onDelete: "cascade" }),
+  num_periods: int("num_periods").notNull(),
+  t: doublePrecision("t").array().notNull(), // elapsed seconds at each scoring play
+  away: integer("away").array().notNull(), // road score after each scoring play
+  home: integer("home").array().notNull(), // home score after each scoring play
+  lead_changes: int("lead_changes").notNull(),
+  times_tied: int("times_tied").notNull(), // after a scoring play, not counting 0-0
+  away_largest_lead: int("away_largest_lead").notNull(),
+  home_largest_lead: int("home_largest_lead").notNull(),
+  away_lead_secs: dbl("away_lead_secs"), // time the road team led
+  home_lead_secs: dbl("home_lead_secs"),
+  tied_secs: dbl("tied_secs"),
+  clutch_secs: dbl("clutch_secs"), // time in clutch: last 5 minutes of the 4th or overtime, margin within 5
+  stints: int("stints").notNull(), // stretches with the same ten players
+  lineup_repairs: int("lineup_repairs").notNull(), // team-periods where ESPN's substitution rows needed a fix
+  minutes_off: int("minutes_off").notNull(), // players whose rebuilt minutes differ from the box score by more than 1
+});
+
+/** Unanswered scoring runs of 8 points or more, and each team's biggest run of the game. */
+export const game_runs = pgTable(
+  "game_runs",
+  {
+    game_id: int("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    seq: int("seq").notNull(), // order in the game
+    team_code: text("team_code")
+      .notNull()
+      .references(() => teams.code),
+    pts: int("pts").notNull(), // the run: pts to 0
+    plays: int("plays").notNull(), // scoring plays in the run
+    start_t: dbl("start_t").notNull(), // elapsed seconds at the first and last scoring play of the run
+    end_t: dbl("end_t").notNull(),
+    start_period: int("start_period").notNull(),
+    start_clock: text("start_clock").notNull(), // game clock, "7:45" or "24.6"
+    end_period: int("end_period").notNull(),
+    end_clock: text("end_clock").notNull(),
+    away_before: int("away_before").notNull(), // score when the run began and ended
+    home_before: int("home_before").notNull(),
+    away_after: int("away_after").notNull(),
+    home_after: int("home_after").notNull(),
+    biggest: boolean("biggest").notNull(), // this team's biggest run of the game
+  },
+  (t) => [primaryKey({ columns: [t.game_id, t.seq] })],
+);
+
+/** Five-man units in one game. A lineup id is the five ESPN player ids, sorted, joined with "-". */
+export const lineup_games = pgTable(
+  "lineup_games",
+  {
+    game_id: int("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    team_code: text("team_code")
+      .notNull()
+      .references(() => teams.code),
+    lineup_id: text("lineup_id").notNull(),
+    player_ids: bigint("player_ids", { mode: "number" }).array().notNull(),
+    secs: dbl("secs").notNull(),
+    poss: dbl("poss").notNull(), // (FGA - OREB + TOV + 0.44 FTA), averaged for both teams, while this unit played
+    pts: int("pts").notNull(),
+    opp_pts: int("opp_pts").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.game_id, t.team_code, t.lineup_id] }), index("lineup_games_team_idx").on(t.team_code)],
+);
+
+/** Five-man units over the season so far, rebuilt every run. */
+export const lineup_season = pgTable(
+  "lineup_season",
+  {
+    season: int("season").notNull(),
+    team_code: text("team_code")
+      .notNull()
+      .references(() => teams.code),
+    lineup_id: text("lineup_id").notNull(),
+    player_ids: bigint("player_ids", { mode: "number" }).array().notNull(),
+    as_of: date("as_of", { mode: "string" }).notNull(),
+    games: int("games").notNull(),
+    secs: dbl("secs").notNull(),
+    poss: dbl("poss").notNull(),
+    pts: int("pts").notNull(),
+    opp_pts: int("opp_pts").notNull(),
+    ortg: dbl("ortg"), // points per 100 possessions
+    drtg: dbl("drtg"),
+    net: dbl("net"),
+    updated_at: updatedAt(),
+  },
+  (t) => [primaryKey({ columns: [t.season, t.team_code, t.lineup_id] })],
+);
+
+/**
+ * Team ratings with a player on and off the floor. "Off" is his team's minutes without him in the games he played.
+ * pm is the on-floor scoring margin (the box score's plus-minus, rebuilt from the play-by-play).
+ */
+export const player_on_off = pgTable(
+  "player_on_off",
+  {
+    season: int("season").notNull(),
+    player_id: bigint("player_id", { mode: "number" })
+      .notNull()
+      .references(() => players.id),
+    team_code: text("team_code")
+      .notNull()
+      .references(() => teams.code),
+    as_of: date("as_of", { mode: "string" }).notNull(),
+    games: int("games").notNull(),
+    on_secs: dbl("on_secs").notNull(),
+    on_poss: dbl("on_poss").notNull(),
+    on_pts: int("on_pts").notNull(),
+    on_opp_pts: int("on_opp_pts").notNull(),
+    on_ortg: dbl("on_ortg"),
+    on_drtg: dbl("on_drtg"),
+    on_net: dbl("on_net"),
+    off_secs: dbl("off_secs").notNull(),
+    off_poss: dbl("off_poss").notNull(),
+    off_pts: int("off_pts").notNull(),
+    off_opp_pts: int("off_opp_pts").notNull(),
+    off_ortg: dbl("off_ortg"),
+    off_drtg: dbl("off_drtg"),
+    off_net: dbl("off_net"),
+    on_off: dbl("on_off"), // on_net - off_net
+    pm: int("pm").notNull(),
+    updated_at: updatedAt(),
+  },
+  (t) => [primaryKey({ columns: [t.season, t.player_id, t.team_code] }), index("player_on_off_team_idx").on(t.season, t.team_code)],
+);
+
+/** Clutch time (last 5 minutes of the 4th quarter or overtime, margin within 5), team totals. */
+export const team_clutch = pgTable(
+  "team_clutch",
+  {
+    season: int("season").notNull(),
+    team_code: text("team_code")
+      .notNull()
+      .references(() => teams.code),
+    as_of: date("as_of", { mode: "string" }).notNull(),
+    games: int("games").notNull(), // games with clutch time
+    w: int("w").notNull(), // record in those games
+    l: int("l").notNull(),
+    secs: dbl("secs").notNull(),
+    poss: dbl("poss").notNull(),
+    pts: int("pts").notNull(),
+    opp_pts: int("opp_pts").notNull(),
+    ortg: dbl("ortg"),
+    drtg: dbl("drtg"),
+    net: dbl("net"),
+    pm: int("pm").notNull(), // pts - opp_pts
+    fgm: int("fgm").notNull(),
+    fga: int("fga").notNull(),
+    fg_pct: dbl("fg_pct"),
+    tpm: int("tpm").notNull(),
+    tpa: int("tpa").notNull(),
+    ftm: int("ftm").notNull(),
+    fta: int("fta").notNull(),
+    updated_at: updatedAt(),
+  },
+  (t) => [primaryKey({ columns: [t.season, t.team_code] })],
+);
+
+/** Clutch time per player: his own scoring, and the team's margin and ratings while he was on the floor. */
+export const player_clutch = pgTable(
+  "player_clutch",
+  {
+    season: int("season").notNull(),
+    player_id: bigint("player_id", { mode: "number" })
+      .notNull()
+      .references(() => players.id),
+    team_code: text("team_code")
+      .notNull()
+      .references(() => teams.code),
+    as_of: date("as_of", { mode: "string" }).notNull(),
+    games: int("games").notNull(), // games with clutch minutes on the floor
+    secs: dbl("secs").notNull(),
+    pts: int("pts").notNull(),
+    fgm: int("fgm").notNull(),
+    fga: int("fga").notNull(),
+    fg_pct: dbl("fg_pct"),
+    tpm: int("tpm").notNull(),
+    tpa: int("tpa").notNull(),
+    ftm: int("ftm").notNull(),
+    fta: int("fta").notNull(),
+    pm: int("pm").notNull(), // on-floor margin in clutch time
+    poss: dbl("poss").notNull(),
+    ortg: dbl("ortg"),
+    drtg: dbl("drtg"),
+    net: dbl("net"),
+    updated_at: updatedAt(),
+  },
+  (t) => [primaryKey({ columns: [t.season, t.player_id, t.team_code] }), index("player_clutch_team_idx").on(t.season, t.team_code)],
+);
+
 /* ------------------------------------------------------------------ daily snapshots */
 
 export const injuries = pgTable(

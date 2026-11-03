@@ -7,6 +7,7 @@
 - Season tables and per-game derived tables are rebuilt for the season.
 - Snapshots (odds, injuries, editorial, game_previews) replace that date's rows.
 - Games that left this season's schedule without being played are deleted (with their odds and previews).
+- Play-by-play tables (game flow, runs, lineups, on/off, clutch) are rebuilt for the season when the run has them.
 Running the same day twice leaves the database unchanged.
 """
 from __future__ import annotations
@@ -26,7 +27,10 @@ KEYS = {
     "team_games": ["game_id", "team_code"],
     "player_games": ["game_id", "player_id"],
 }
-NO_UPDATED_AT = {"game_gaps", "player_game_deltas", "pipeline_runs", "odds", "injuries", "game_previews"}
+NO_UPDATED_AT = {"game_gaps", "player_game_deltas", "pipeline_runs", "odds", "injuries", "game_previews",
+                 "game_flow", "game_runs", "lineup_games"}
+PBP_GAME_TABLES = ["game_flow", "game_runs", "lineup_games"]
+PBP_SEASON_TABLES = ["lineup_season", "player_on_off", "team_clutch", "player_clutch"]
 
 
 def _q(name: str) -> str:
@@ -88,7 +92,8 @@ def load_shots(conn: psycopg.Connection, shots: ShotBuild | None, season: int) -
 
 
 def load_build(conn: psycopg.Connection, build: Build, odds: list[dict], injuries: list[dict],
-               editorial: list[dict], previews: list[dict] | None = None, shots: ShotBuild | None = None) -> dict[str, int]:
+               editorial: list[dict], previews: list[dict] | None = None, shots: ShotBuild | None = None,
+               pbp=None) -> dict[str, int]:
     """Write everything for one run. The caller owns the transaction."""
     season, day = build.season, build.today.isoformat()
     counts: dict[str, int] = {}
@@ -134,6 +139,15 @@ def load_build(conn: psycopg.Connection, build: Build, odds: list[dict], injurie
     counts["editorial"] = write_rows(conn, "editorial", editorial)
     conn.execute("DELETE FROM game_previews WHERE snapshot_date = %s", (day,))
     counts["game_previews"] = write_rows(conn, "game_previews", previews or [])
+
+    # play-by-play: per-game and season tables rebuilt for the season (left alone when the run had no play-by-play)
+    if pbp is not None:
+        for table in PBP_GAME_TABLES:
+            conn.execute(f"DELETE FROM {_q(table)} WHERE game_id IN (SELECT id FROM games WHERE season = %s)", (season,))
+            counts[table] = write_rows(conn, table, getattr(pbp, table))
+        for table in PBP_SEASON_TABLES:
+            conn.execute(f"DELETE FROM {_q(table)} WHERE season = %s", (season,))
+            counts[table] = write_rows(conn, table, getattr(pbp, table))
     return counts
 
 

@@ -8,6 +8,7 @@ Where the numbers come from, when they refresh, and what they mean.
 | --- | --- | --- |
 | hoopR mirror, season files (`sportsdataverse/hoopR-nba-data`) | Every box score of the season: `player_box_<season>.parquet`, `team_box_<season>.parquet`, and the full schedule `nba_schedule_<season>.parquet` | Downloaded each run from `raw.githubusercontent.com/sportsdataverse/hoopR-nba-data/main/nba/...`, or read from `--source-dir` |
 | hoopR mirror, shot file (`shots/parquet/shots_<season>.parquet`) | Every shot of the season with its spot on the court, from ESPN's play-by-play (see [Shots](#shots)) | Same as the season files. Optional: without it the run carries on and leaves the shot tables as they were |
+| hoopR mirror, play-by-play (`play_by_play_<season>.parquet`) | ESPN's play-by-play for every game: substitutions, clock, running score, shots, free throws, rebounds, turnovers, fouls (about 500 plays a game, 20 MB by the end of a season) | Downloaded each run from `.../nba/pbp/parquet/`, or read from `--source-dir`. Only tables computed from it are stored, never the plays |
 | hoopR raw per-game mirror (`sportsdataverse/hoopR-nba-raw`) | ESPN's summary JSON for a single game | Fallback for finished games the season files do not have yet |
 | PATCH files (`patch_<espn_id>.json` in `--inputs`) | A box score written from ESPN's game summary by hand or by `record-fixtures` | Second fallback, checked before the raw mirror; format in `pipeline/nba_pipeline/sources/patch.py` |
 | ESPN game summary (`site.api.espn.com/.../summary?event=<id>`) | Tonight's lines from `pickcenter` (first provider, usually DraftKings), moneylines, and win odds from `predictor` when posted | One request per game tonight, one at a time |
@@ -114,6 +115,65 @@ Makes match the box score in every fixture team-game (all but 3 in 2025-26) and 
 ### Storage
 
 About 220,000 shots a season, about 45 MB with indexes (3.2 MB for the fixture). Each run rewrites only the games whose shots changed: `shot_games` keeps a hash of each game's rows. Zone profiles are rebuilt every run for the season.
+
+## Play-by-play
+
+`pipeline/nba_pipeline/pbp.py` reads the season's play-by-play after the box-score engine and writes seven tables. None of them holds raw plays.
+
+| Table | One row per | What it holds |
+| --- | --- | --- |
+| `game_flow` | game | The score after every scoring play (for the worm chart), lead changes, ties, largest leads, how long each side led, time in clutch, how many stints and repairs the lineup rebuild needed |
+| `game_runs` | run | Unanswered scoring runs of 8 or more points, plus each team's biggest run of the game, with start and end clock and the score before and after |
+| `lineup_games` | game, team, five-man unit | Seconds, possessions, points for and against |
+| `lineup_season` | season, team, unit | The same summed over the season, with offensive, defensive and net rating |
+| `player_on_off` | season, player, team | The team's ratings with him on the floor and off it, in the games he played, and his on-floor plus-minus |
+| `team_clutch`, `player_clutch` | season, team (or player) | Clutch-time games, record, minutes, points, shooting, plus-minus and ratings (for players: his own scoring, and the team's margin while he was on the floor) |
+
+A full season takes about 19 MB in Postgres (measured on 2025-26; `lineup_games` is half of it), and the step adds about 25 seconds to a late-season run.
+
+### Rules
+
+- Order: plays are sorted by `game_play_number`, which follows the game clock. `sequence_number` is ESPN's edit order (a play corrected later gets a higher number), so it is not used. In this order the running score is consistent on every row and the last play's score equals the box score in every game of the fixture day.
+- Time: elapsed game seconds, 0 at tip-off, 720 per quarter, 300 per overtime. The clock under a minute keeps tenths (`24.6`).
+- Field goal attempts leave out missed end-of-quarter heaves (`Heave Jump Shot` with no score), because ESPN's box score does too. Rebounds are player rebounds; team rebounds are not counted, as in the box score. Turnovers include team turnovers (shot clock and the like).
+- Possessions use the app's estimate, per stretch of play and per side: FGA - OREB + TOV + 0.44 x FTA, averaged for the two teams, so lineups and on/off read on the same scale as the team ratings.
+- Free throws count for the ten players on the floor when the foul happened, even if substitutions came between the foul and the shots. That is how the box score's plus-minus works: crediting them to the lineup at the shot matches the box score's plus-minus in only about 4 player-games in 10 last season, crediting them to the lineup at the foul matches 98.8%.
+- Lead changes count each time the lead passes from one team to the other (a tie in between does not count as a change). Times tied counts ties after a basket, not 0-0.
+- A scoring run is the points one team scores before the other team scores again. Its time runs from its first basket to its last.
+- Clutch time: the last 5 minutes of the 4th quarter or any overtime with the margin within 5. A play is clutch when the margin before it is within 5, so the basket that stretches a 5-point game to 7 still counts. Clutch minutes are the stretches of game clock in that state.
+- On/off: on is every second he was on the floor; off is his team's remaining time in the games he played (not the games he missed). On-off is the net rating on minus the net rating off.
+
+### Who is on the floor
+
+Substitutions say who enters (athlete 1) and who leaves (athlete 2). The feed does not list the five players who start each period, so each team's period is read on its own:
+
+1. Period 1 takes the box score's five starters.
+2. Otherwise a player named in a play, or leaving the game, before he enters was on the floor when the period began. Technical fouls and ejections do not count, since they can name a player on the bench.
+3. A player who plays a whole period without a logged event is still on from the end of the previous period.
+4. ESPN sometimes keeps both the original and the corrected version of a substitution, names the wrong player leaving, or names nobody. When the plain reading does not fit, other starting fives and fixes to the contradicting rows (drop one or two, or work out who really left) are tried, and the reading with the fewest contradictions wins: a row that cannot apply costs 3, a dropped row 2, a corrected outgoing player 1, a play naming a benched player 1.
+5. When two readings fit equally well, the one whose minutes come closest to the box score is kept. This is the only use of the box score's minutes, so the minutes check below stays an honest test of the rest.
+
+Every stretch of play has exactly five players a side.
+
+### Checks
+
+Each run checks the rebuild against the box score and reports the results in `pipeline_runs` (messages start with `play-by-play:`). Lineup minutes that do not add up are an error (a bug); gaps in ESPN's data are warnings.
+
+| Check | Fixture day (92 games before 2026-11-02) | 2025-26 regular season |
+| --- | --- | --- |
+| Five-man lineup minutes per team per game add up to 240 player minutes, plus 25 per overtime | Every team-game, including 4 overtime games | Every team-game |
+| Rebuilt minutes within a minute of the box score | 2,074 of 2,079 player-games; the other 5 are all in one game (401909096, HOU at SAS), where ESPN's feed misses substitutions: the same five players are off in plus-minus too | 26,597 of 26,599; the other 2 are in one game with the same kind of gap |
+| On-floor margin equals the box score's plus-minus | 2,034 of 2,079 player-games (97.8%); season totals exact for 397 of 442 players, all within 5 | 26,292 of 26,599 (98.8%) |
+| Final score, lead changes and largest leads against ESPN's box score | All match (lead changes compared in the 82 games where ESPN lists any) | Lead changes match wherever ESPN lists them (it leaves them blank in many early games); largest leads 2,314 of 2,315 teams |
+| Lineup possessions against the box score's estimate | Within 1 for every team-game | Within 3, except one game where ESPN's box is missing 21 turnovers |
+| Clutch points against a separate count straight from the raw rows (in the tests) | Every team matches | |
+| Team-periods that needed a repaired reading; ties settled by box minutes | 22 of 744; 2 | 99 of about 10,000; 1 |
+
+Other gaps the run reports: a finished game whose play-by-play is not in the file yet (1 last season) or whose final score differs from the box score (1 last season) is left out of the play-by-play tables, and a player the plays have on the floor but ESPN's box score leaves out takes his team from the plays (21 player-games last season, all one player).
+
+### Fixture
+
+`pipeline/fixtures/hoopr_2026-11-02/play_by_play_2027.parquet` is the mirror's file as downloaded on 2026-11-03, cut to the games before 2026-11-02 (the same 92 as the box-score fixture) and to the columns the pipeline reads (`pbp.COLUMNS`, 23 of 68). A task that needs more columns (Task 4 wants `game_spread`, `home_favorite` and `home_team_spread`) should download the season file again, keep the same games and add its columns to `COLUMNS`.
 
 ## Injury status rules
 
