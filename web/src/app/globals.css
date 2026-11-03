@@ -1,0 +1,183 @@
+@import "tailwindcss";
+
+/*
+ * NBA Daily design tokens: night broadcast.
+ * Arena navy surfaces, team colors as identity slabs, shot-clock amber only for what needs attention.
+ * Chart colors were checked with the dataviz validator against the panel surface (#101f33):
+ *   diverging +/-  plus #3d9be9 / minus #e8683f
+ *   conference     east #1f9e8a / west #9b6fe0
+ *   status         out #e0484d / warn #c4860a / ok #239a6b (always shown with the status word)
+ */
+@theme {
+  --color-arena: #0b1624;
+  --color-panel: #101f33;
+  --color-panel-2: #142843;
+  --color-line: #1e3352;
+  --color-line-strong: #2d4a70;
+  --color-ink: #edf2f8;
+  --color-ink-2: #b6c3d6;
+  --color-muted: #8293ab;
+  --color-clock: #ffb627;
+  --color-plus: #3d9be9;
+  --color-minus: #e8683f;
+  --color-east: #1f9e8a;
+  --color-west: #9b6fe0;
+  --color-out: #e0484d;
+  --color-warn: #c4860a;
+  --color-ok: #239a6b;
+
+  --font-display: "Big Shoulders Display Variable", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --font-sans: "Archivo Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+@layer base {
+  html {
+    background: var(--color-arena);
+    color: var(--color-ink);
+    color-scheme: dark;
+  }
+  body {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    min-height: 100vh;
+  }
+  a {
+    color: inherit;
+    text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+    text-underline-offset: 3px;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-clock);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--color-clock) 45%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@layer components {
+  /* tabular figures wherever numbers line up in columns */
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+  .display {
+    font-family: var(--font-display);
+    font-weight: 800;
+    line-height: 0.92;
+    letter-spacing: 0.005em;
+  }
+  .condensed {
+    font-stretch: 82%;
+  }
+
+  /* panels: flat, one hairline, a little radius; the notch marks the one panel that leads a page */
+  /* grid children may shrink below their content (wide tables scroll inside their panel instead) */
+  .grid > * {
+    min-width: 0;
+  }
+
+  .panel {
+    min-width: 0;
+    background: var(--color-panel);
+    border: 1px solid var(--color-line);
+    border-radius: 6px;
+  }
+  .panel-notch {
+    clip-path: polygon(0 0, calc(100% - 22px) 0, 100% 22px, 100% 100%, 0 100%);
+  }
+
+  .section-title {
+    font-family: var(--font-display);
+    font-weight: 750;
+    font-size: 30px;
+    line-height: 1;
+    letter-spacing: 0.01em;
+  }
+  .note {
+    color: var(--color-muted);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  /* data tables */
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .data-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+  .data-table th {
+    font-weight: 600;
+    font-stretch: 82%;
+    color: var(--color-muted);
+    text-align: left;
+    white-space: nowrap;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--color-line-strong);
+    background: var(--color-panel);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+  .data-table td {
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--color-line);
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+  .data-table tbody tr:last-child td {
+    border-bottom: 0;
+  }
+  .data-table tbody tr:hover td {
+    background: var(--color-panel-2);
+  }
+  .data-table .r {
+    text-align: right;
+  }
+  .data-table .sticky-col {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: var(--color-panel);
+  }
+  .data-table thead .sticky-col {
+    z-index: 3;
+  }
+  .data-table tbody tr:hover .sticky-col {
+    background: var(--color-panel-2);
+  }
+  .data-table tr.group-break td {
+    border-top: 1px solid var(--color-line-strong);
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--color-line-strong);
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: 12px;
+    color: var(--color-ink-2);
+    white-space: nowrap;
+  }
+}
