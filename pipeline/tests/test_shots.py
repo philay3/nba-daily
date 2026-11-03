@@ -122,8 +122,8 @@ def test_three_point_line_matches_made_shots(raw):
 
 def test_shot_counts_match_box_score_attempts(sb):
     c = sb.meta["coverage"]
-    # the gap, reported: 16,255 shots for 16,257 attempts. 174 of 184 team-games match; 6 are a shot short
-    # (ESPN has no location for it) and 4 a shot over. Makes and made threes match in every team-game.
+    # the gap, reported: 16,255 shots for 16,257 attempts. 174 of 184 team-games match; in 6 the play-by-play logs
+    # a shot fewer than the box score and in 4 a shot more. Makes and made threes match in every team-game.
     assert c == dict(team_games=184, with_shots=184, box_fga=16257, shots=16255, exact=174, short=6, over=4,
                      shots_short=6, shots_over=4, worst=1, fgm_mismatch=0, tpm_mismatch=0, games_without_shots=[])
     assert sb.meta["dropped"] == dict(free_throws=4647, missed_heaves=87, wrong_team=0, unknown_shooter=0,

@@ -98,6 +98,22 @@ Short entries: the decision, why, and the trade-off. Newest at the bottom of eac
 - Golden files: regenerated with `cd pipeline && python3 -I tests/regen_golden.py`. Only these fields changed: `pts_off_to` in `box_teams`, the four points off turnovers rows in `box_compare` (the two sides swap and the edge flips; z, gap and level stay the same), and `pts_off_to_pg`, `opp_pts_off_to_pg` and their ranks in `team_season`. The other seven files and `digest.txt` are byte for byte the same.
 - Trade-off: the golden files are now the original engine's output plus this fix, and `docs/reference/nba_build.py` keeps the old reading for the record. Stored data needs no migration: every run upserts all of the season's `team_games` rows and rebuilds `team_season` and `game_gaps`, so the next run corrects them.
 
+### Shots: one row per attempt, rewritten only for games whose shots changed
+- Why: the charts need every attempt's spot. A season has about 220,000 attempts, about 45 MB with indexes, which fits Neon's free plan, but rewriting all of them every morning would churn the database for nothing. `shot_games` keeps a hash of each game's rows, and a run deletes and copies in (with COPY) only the games whose hash changed. Zone profiles are small and rebuilt every run, like `team_season`.
+- Trade-off: a game whose shots disappear from the source keeps its old rows, the same as box scores (a run never deletes facts it no longer sees). The shot file is optional: when it is missing or unreadable the run warns and leaves every shot table as it was.
+
+### Three or two: makes by their points, misses by the line
+- Why: the shot file gives a miss 0 points, so only its spot can say whether it was a three. A make's points are certain, so they decide. The line agrees with them on 99.96% of 2025-26 makes anyway, and this way made threes and points from shots match the box score exactly.
+- Trade-off: right at the line, makes and misses follow slightly different rules (42 of 103,346 makes in 2025-26 would change sides).
+
+### Missed heaves are not attempts
+- Why: since 2025-26 the box score does not count a missed end-of-quarter heave as a field goal attempt, and ESPN types them "Heave Jump Shot". Keeping them would add 85 attempts on the fixture day that no box score has.
+- Trade-off: the backcourt zone keeps only made heaves and the rare long shot that does count, so its FG% means little. Pages show it only when there are attempts.
+
+### Zone profiles carry the league's numbers on every row
+- Why: every zone table compares with the league. Storing the league's FG%, points per shot and share beside each row, plus the gap between the two printed FG% values, keeps that math in Python, where tests cover it; the web only prints.
+- Trade-off: the league numbers are repeated on every row (a few thousand rows a season).
+
 ## Web
 
 ### Pages render per request; the default date follows the data

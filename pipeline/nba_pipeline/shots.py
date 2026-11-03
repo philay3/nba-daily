@@ -244,8 +244,9 @@ def profile_rows(S: pd.DataFrame, keys: list[str], league: dict, extra=None) -> 
 def coverage(rows: list[dict], team_games: list[dict]) -> dict:
     """Shots per team-game against the box score's field goal attempts, makes and threes made.
 
-    ESPN leaves a few shots without a location, so a team-game can come up a shot or two short; a shot logged
-    to the wrong team, or a tip the box score does not count, can make it a shot over."""
+    The shot file holds every shooting play in ESPN's play-by-play, each with a spot, but the play-by-play now and
+    then logs a shot more or fewer for a team than the box score counts. A game missing from the play-by-play has
+    no shots at all."""
     n: dict[tuple, list[int]] = {}
     for r in rows:
         c = n.setdefault((r["game_id"], r["team_code"]), [0, 0, 0])

@@ -7,6 +7,7 @@ Where the numbers come from, when they refresh, and what they mean.
 | Source | What we take | How |
 | --- | --- | --- |
 | hoopR mirror, season files (`sportsdataverse/hoopR-nba-data`) | Every box score of the season: `player_box_<season>.parquet`, `team_box_<season>.parquet`, and the full schedule `nba_schedule_<season>.parquet` | Downloaded each run from `raw.githubusercontent.com/sportsdataverse/hoopR-nba-data/main/nba/...`, or read from `--source-dir` |
+| hoopR mirror, shot file (`shots/parquet/shots_<season>.parquet`) | Every shot of the season with its spot on the court, from ESPN's play-by-play (see [Shots](#shots)) | Same as the season files. Optional: without it the run carries on and leaves the shot tables as they were |
 | hoopR raw per-game mirror (`sportsdataverse/hoopR-nba-raw`) | ESPN's summary JSON for a single game | Fallback for finished games the season files do not have yet |
 | PATCH files (`patch_<espn_id>.json` in `--inputs`) | A box score written from ESPN's game summary by hand or by `record-fixtures` | Second fallback, checked before the raw mirror; format in `pipeline/nba_pipeline/sources/patch.py` |
 | ESPN game summary (`site.api.espn.com/.../summary?event=<id>`) | Tonight's lines from `pickcenter` (first provider, usually DraftKings), moneylines, and win odds from `predictor` when posted | One request per game tonight, one at a time |
@@ -46,6 +47,64 @@ All of this is a port of the original engine (`docs/reference/nba_build.py`); th
 - Player deltas for every game: points, rebounds, assists and minutes against his averages from games before that date, with the engine's flags (points +/- 8 with 12+ minutes, rebounds +/- 5, assists +/- 4, three or more extra threes, minutes +/- 10, a season high with 15+ points, plus-minus of 15 either way, double- and triple-doubles, first game of the season).
 - Missing scoring: the season points per game of players listed Out or Doubtful, matched to season stats by team and exact name. A name spelled differently from the box scores counts as "no games this season"; the digest flags close spellings with NAME CHECK, and ESPN injury names are normalized (accents, punctuation, Jr./III) to the box-score spelling when there is exactly one match.
 - Rest days, back-to-backs, records entering each game, upsets (winner had the worse record entering, with 2+ games played) and comebacks (the loser once led by 10 or more).
+- Shot zones (see [Shots](#shots)): attempts, makes, points, FG%, points per shot (two decimals) and share of attempts by zone, for the league, each team on offense and on defense (its opponents' shots), each player and each team-game. Each row carries the league's numbers for the same zone and the FG% gap between the two printed values. On the web, a hexbin compares the FG% in that hex with the league FG% of the zones its shots came from.
+
+## Shots
+
+hoopR's shot file has one row per shot, free throws included: `game_id`, `period_number`, `clock_display_value`, `team_id`, `athlete_id_1` (the shooter), `athlete_id_2` (the passer on a make, the blocker on a miss), `type_text`, `scoring_play`, `score_value`, and two sets of coordinates. ESPN does not document the coordinates, so the system below was worked out from the data. `pipeline/tests/test_shots.py` runs every check in this section on the fixture.
+
+### Where the rim is, the units, which half
+
+- `coordinate_x_raw` runs across the court in whole feet, 0 to 50. The rim is at 25.
+- `coordinate_y_raw` is feet from the rim toward half court. The baseline is 5.25 feet behind the rim (the lowest value in the data is -5), half court is 41.75 feet out, and the far baseline 88.75 (the highest value is 88, a heave).
+- One half court for everything: every shot is measured toward the basket the shooting team attacks, in both halves of the game.
+- hoopR's `coordinate_x` and `coordinate_y` turn the same spots into a full-court view (`coordinate_x` is 41.75 minus the raw y, with the sign flipped for one team) that keeps each team on one end for the whole game, with no switch at the half. We use the raw columns.
+- We store `x` = raw x minus 25 (feet left or right of the rim) and `y` = raw y (feet out from the rim). ESPN does not say which sideline is 0; nothing here depends on it, since there is no left or right corner.
+
+| Check (fixture: 92 games through Nov 1, 2026) | Result |
+| --- | --- |
+| Dunks: distance from raw (25, 0) | median 1.4 ft, 96% within 5 ft (960 dunks) |
+| Layups | median 2.2 ft, 93% within 6 ft (3,845 layups) |
+| Jump shots | median 24.2 ft |
+| Free throws | all placed at (25, 13.75): 13.75 ft is the free throw line's distance from the rim (15 ft from the backboard, the rim 1.25 ft in front of it). It is a placeholder, not a real spot |
+| The three-point line (22 ft in the corners up to 8.75 ft past the rim, 23.75 ft around the arc) against made shots' points | agrees on 7,443 of 7,451 makes (99.9%); 99.96% of 103,346 makes over 2025-26 |
+| The lane (8 ft either side of the rim, out to y = 14) against ESPN's points in the paint | within 2 points in every team-game, exact in 146 of 184. Over 2025-26 these edges match ESPN exactly in more team-games (81%) than edges a foot narrower, wider, shorter or longer |
+| Assisted makes against box score assists | exact in 183 of 184 team-games, the other off by one |
+
+### What counts as an attempt
+
+- Free throws are dropped (`type_text` starts with "Free Throw").
+- Missed heaves are dropped. Since 2025-26 a missed end-of-quarter heave is not charged as a field goal attempt. ESPN types them "Heave Jump Shot" (1,099 in 2025-26, none made) and the box score leaves them out: with them the fixture has 85 more attempts than the box scores, without them 2 fewer. Made heaves count as attempts and makes. The 2024-25 file has no heave type, so the rule changes nothing there.
+- Everything else counts, including tip-ins logged twice at the same second and "No Shot (Default Shot)" rows: dropping either made the match with the box scores worse.
+
+### Three or two, zones, assists
+
+- A make is a three when its points say 3. A miss is placed by the line.
+- Zones, as NBA.com draws them:
+  - Restricted area: within 4 ft of the rim.
+  - Paint: inside the 16-foot lane up to the free throw line (`|x| <= 8`, `y <= 14` in whole feet), outside the restricted area.
+  - Midrange: any other two.
+  - Corner 3: a three with `y <= 8.75`, the straight part of the line (up to 14 ft from the baseline).
+  - Above the break 3: any other three up to half court.
+  - Backcourt: beyond half court (`y > 41.75`). Missed heaves are not attempts but made ones are, so this zone's FG% is high and means little.
+- Assisted: a make with a second player listed. In the data that player is always a teammate. On a miss the second player is the shot blocker, always an opponent; we do not store it.
+
+### Coverage: shots against the box scores
+
+Every run compares each team-game's shots with its box score and prints the result under `shots.coverage` in the run summary. A game with a box score but no shots is a run warning; its chart and zone table show nothing until the shot file has it.
+
+| Season | Team-games with shots | Box score attempts | Shots | Exact | Short | Over | Worst gap |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-27 fixture, 92 games | 184 | 16,257 | 16,255 | 174 | 6, one shot each | 4, one shot each | 1 |
+| 2025-26 regular season | 2,460 of 2,462 | 219,180 | 219,192 | 2,414 | 18 | 28 | 3 |
+
+Where the gaps come from: not missing locations. The shot file holds every shooting play in hoopR's play-by-play (220,542 of 220,542 in 2025-26, 16,342 of 16,342 on the fixture, heaves included), and every one of them has a spot. The play-by-play itself sometimes logs one shot more or fewer for a team than the box score counts, which is the short and over above. One 2025-26 game (401810469) has no play-by-play in the mirror at all, so it has no shots. The pipeline still drops and counts any shot without a spot (`shots.dropped.no_location`) in case ESPN starts leaving them out.
+
+Makes match the box score in every fixture team-game (all but 3 in 2025-26) and made threes in every one (all but 2), so on the fixture, points from shots equal points minus free throws in every team-game.
+
+### Storage
+
+About 220,000 shots a season, about 45 MB with indexes (3.2 MB for the fixture). Each run rewrites only the games whose shots changed: `shot_games` keeps a hash of each game's rows. Zone profiles are rebuilt every run for the season.
 
 ## Injury status rules
 
