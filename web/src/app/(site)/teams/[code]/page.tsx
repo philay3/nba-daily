@@ -6,9 +6,10 @@ import { Columns } from "@/components/charts/Bars";
 import { coverageNote, ShotPanel, ZoneCompare } from "@/components/shots/ShotPanel";
 import { accentOf, NoDatabase, PmBar, SectionHead } from "@/components/ui/bits";
 import { DatabaseNotConfigured } from "@/db/client";
-import { getTeamPage, resolveDay } from "@/lib/data";
+import { getTeamPage, resolveDay, type LineupSeason, type OnOff, type PlayerClutch, type PlayerName, type PlayerSeason, type TeamClutch } from "@/lib/data";
 import { CHART } from "@/lib/colors";
-import { addDays, f1, monthDay, ordinal, seasonLabel, signed, signedInt, timeET } from "@/lib/format";
+import { minutesOf } from "@/lib/flow";
+import { addDays, f1, monthDay, ordinal, pctText, seasonLabel, signed, signedInt, timeET } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,198 @@ function Big({ label, value, rank }: { label: string; value: string; rank?: numb
   );
 }
 
+const LINEUP_MIN_POSS = 50;
+const SAMPLE_POSS = 50; // on/off rows with fewer possessions on or off the floor are greyed out
+const BAR_MAX = 30; // net ratings past +/-30 fill the bar
+
+function shortName(id: number, names: Map<number, PlayerName>): string {
+  const p = names.get(id);
+  return p?.short_name || p?.name || String(id);
+}
+
+/** A lineup's five names, regulars first (most minutes per game on this team). */
+function lineupNames(l: LineupSeason, names: Map<number, PlayerName>, mpg: Map<number, number>): string {
+  return [...l.player_ids]
+    .sort((a, b) => (mpg.get(b) ?? -1) - (mpg.get(a) ?? -1))
+    .map((id) => shortName(id, names))
+    .join(", ");
+}
+
+function LineupTable({ rows, names, mpg }: { rows: LineupSeason[]; names: Map<number, PlayerName>; mpg: Map<number, number> }) {
+  return (
+    <div className="panel table-wrap">
+      <table className="data-table">
+        <thead>
+          <tr>
+            <th className="sticky-col">Lineup</th>
+            <th className="r">GP</th>
+            <th className="r">MIN</th>
+            <th className="r">Poss</th>
+            <th className="r">Off rtg</th>
+            <th className="r">Def rtg</th>
+            <th className="r">Net</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((l) => (
+            <tr key={l.lineup_id}>
+              <td className="sticky-col">{lineupNames(l, names, mpg)}</td>
+              <td className="r num">{l.games}</td>
+              <td className="r num">{minutesOf(l.secs)}</td>
+              <td className="r num">{f1(l.poss)}</td>
+              <td className="r num">{f1(l.ortg)}</td>
+              <td className="r num">{f1(l.drtg)}</td>
+              <td className="r">
+                <PmBar value={l.net} maxAbs={BAR_MAX} digits={1} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function Lineups({ lineups, names, roster }: { lineups: LineupSeason[]; names: Map<number, PlayerName>; roster: PlayerSeason[] }) {
+  const mpg = new Map(roster.map((p) => [p.player_id, p.mpg ?? 0]));
+  const top = lineups.filter((l) => l.poss >= LINEUP_MIN_POSS).sort((a, b) => (b.net ?? 0) - (a.net ?? 0)).slice(0, 10);
+  const used = [...lineups].sort((a, b) => b.poss - a.poss).slice(0, 3);
+  return (
+    <div>
+      <SectionHead title="Top lineups">
+        Five-man units with at least {LINEUP_MIN_POSS} possessions together, best net rating first. Ratings are points per 100 possessions, rebuilt from the
+        play-by-play.
+      </SectionHead>
+      {top.length ? (
+        <LineupTable rows={top} names={names} mpg={mpg} />
+      ) : used.length ? (
+        <div className="grid gap-3">
+          <p className="note">No lineup has {LINEUP_MIN_POSS} possessions together yet. The most used so far:</p>
+          <LineupTable rows={used} names={names} mpg={mpg} />
+        </div>
+      ) : (
+        <p className="note">No play-by-play for this team yet.</p>
+      )}
+    </div>
+  );
+}
+
+function ClutchStat({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="grid gap-1">
+      <span className="text-[12px] text-muted">{label}</span>
+      <span className="display text-[36px] leading-none">{value}</span>
+      {sub ? <span className="text-[13px] text-ink-2">{sub}</span> : null}
+    </div>
+  );
+}
+
+function Clutch({ team, clutch, players, names }: { team: string; clutch: TeamClutch | null; players: PlayerClutch[]; names: Map<number, PlayerName> }) {
+  const scorers = players.filter((p) => p.pts > 0 || p.fga > 0).slice(0, 5);
+  return (
+    <div>
+      <SectionHead title="Clutch time">The last 5 minutes of the 4th quarter or overtime with the score within 5.</SectionHead>
+      <div className="panel grid gap-5 p-5">
+        {clutch ? (
+          <>
+            <div className="grid grid-cols-2 gap-5">
+              <ClutchStat label="Record in clutch games" value={`${clutch.w}-${clutch.l}`} sub={`${clutch.games} ${clutch.games === 1 ? "game" : "games"}, ${minutesOf(clutch.secs)} minutes`} />
+              <ClutchStat label="Plus-minus" value={signedInt(clutch.pm)} sub={`${clutch.pts} scored, ${clutch.opp_pts} allowed`} />
+              <ClutchStat label="Net rating" value={signed(clutch.net)} sub={`${f1(clutch.poss)} possessions`} />
+              <ClutchStat label="Field goals" value={`${clutch.fgm}-${clutch.fga}`} sub={clutch.fga ? pctText(clutch.fg_pct) : "No shots"} />
+            </div>
+            {scorers.length ? (
+              <div className="table-wrap">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Player</th>
+                      <th className="r">PTS</th>
+                      <th className="r">FG</th>
+                      <th className="r">MIN</th>
+                      <th className="r">+/-</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scorers.map((p) => (
+                      <tr key={p.player_id}>
+                        <td>
+                          <Link href={`/players/${p.player_id}`} className="font-semibold no-underline hover:underline">
+                            {names.get(p.player_id)?.name ?? p.player_id}
+                          </Link>
+                        </td>
+                        <td className="r num font-semibold">{p.pts}</td>
+                        <td className="r num">
+                          {p.fgm}-{p.fga}
+                        </td>
+                        <td className="r num">{minutesOf(p.secs)}</td>
+                        <td className="r num">{signedInt(p.pm)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <p className="text-[14px] text-muted">{team} has not played a clutch minute yet this season.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function OnOffTable({ rows, names }: { rows: OnOff[]; names: Map<number, PlayerName> }) {
+  return (
+    <section>
+      <SectionHead title="On and off the floor">
+        Team points scored and allowed per 100 possessions with each player on the floor and off it, in the games he played. On-off is the difference in net
+        rating. Small samples swing a lot: grey rows have fewer than {SAMPLE_POSS} possessions on or off the floor.
+      </SectionHead>
+      <div className="panel table-wrap">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th className="sticky-col">Player</th>
+              <th className="r">GP</th>
+              <th className="r">MIN on</th>
+              <th className="r">Off rtg on</th>
+              <th className="r">Def rtg on</th>
+              <th className="r">Net on</th>
+              <th className="r">MIN off</th>
+              <th className="r">Net off</th>
+              <th className="r">On-off</th>
+              <th className="r">+/- on</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.player_id} className={Math.min(r.on_poss, r.off_poss) < SAMPLE_POSS ? "text-muted" : undefined}>
+                <td className="sticky-col">
+                  <Link href={`/players/${r.player_id}`} className="font-semibold no-underline hover:underline">
+                    {names.get(r.player_id)?.name ?? r.player_id}
+                  </Link>
+                </td>
+                <td className="r num">{r.games}</td>
+                <td className="r num">{minutesOf(r.on_secs)}</td>
+                <td className="r num">{f1(r.on_ortg)}</td>
+                <td className="r num">{f1(r.on_drtg)}</td>
+                <td className="r num font-semibold">{signed(r.on_net)}</td>
+                <td className="r num">{minutesOf(r.off_secs)}</td>
+                <td className="r num">{signed(r.off_net)}</td>
+                <td className="r">
+                  <PmBar value={r.on_off} maxAbs={BAR_MAX} digits={1} />
+                </td>
+                <td className="r num">{signedInt(r.pm)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 export default async function TeamPage({ params, searchParams }: { params: Params; searchParams: Promise<{ date?: string; shots?: string }> }) {
   const { code: raw } = await params;
   const code = raw.toUpperCase();
@@ -42,7 +235,7 @@ export default async function TeamPage({ params, searchParams }: { params: Param
     throw e;
   }
   if (!data) notFound();
-  const { team, teams, row, log, roster, upcoming, season, shots, zones } = data;
+  const { team, teams, row, log, roster, upcoming, season, shots, zones, lineups, onOff, clutch, playerClutch, names } = data;
   const accent = accentOf(team);
   const view = sp.shots === "dots" ? "dots" : "hex"; // a season of shots reads best as hexes
   const asOf = zones[0]?.as_of;
@@ -184,6 +377,15 @@ export default async function TeamPage({ params, searchParams }: { params: Param
           </div>
         </section>
       ) : null}
+
+      {row ? (
+        <section className="grid gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+          <Lineups lineups={lineups} names={names} roster={roster} />
+          <Clutch team={team.nickname} clutch={clutch} players={playerClutch} names={names} />
+        </section>
+      ) : null}
+
+      {onOff.length ? <OnOffTable rows={onOff} names={names} /> : null}
 
       <section>
         <SectionHead title="Game log">Per-game ratings use that game&apos;s possessions. Open a game for its box score.</SectionHead>
