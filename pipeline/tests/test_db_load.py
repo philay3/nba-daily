@@ -16,7 +16,8 @@ EXPECTED_COUNTS = {
     "teams": 30, "players": 461, "games": 1200, "team_games": 184, "player_games": 2509, "team_season": 30,
     "player_season": 442, "game_gaps": 2300, "player_game_deltas": 2072, "odds": 15, "injuries": 100, "editorial": 28,
     "game_previews": 29, "shots": 16255, "shot_games": 92, "league_shot_zones": 7, "team_shot_zones": 420,
-    "player_shot_zones": 2996, "game_shot_zones": 1288,
+    "player_shot_zones": 2996, "game_shot_zones": 1288, "game_flow": 92, "game_runs": 352, "lineup_games": 3429,
+    "lineup_season": 2356, "player_on_off": 442, "team_clutch": 30, "player_clutch": 258,
 }
 
 
@@ -78,6 +79,36 @@ def test_season_records_match_box_scores(conn):
               FROM team_games GROUP BY team_code) b USING (team_code)
         WHERE ts.w <> b.w OR ts.l <> b.l""").fetchall()
     assert bad == []
+
+
+def test_lineup_minutes_add_up_to_240_plus_25_per_overtime(conn):
+    rows = conn.execute("""
+        SELECT lg.game_id, lg.team_code, sum(lg.secs) * 5 / 60 AS player_minutes, 240 + 25 * g.ot AS expected,
+               bool_and(cardinality(lg.player_ids) = 5) AS fives
+        FROM lineup_games lg JOIN games g ON g.id = lg.game_id
+        GROUP BY lg.game_id, lg.team_code, g.ot""").fetchall()
+    assert len(rows) == 184
+    for r in rows:
+        assert abs(r["player_minutes"] - r["expected"]) < 0.05 and r["fives"], r
+
+
+def test_game_flow_ends_at_the_final_score(conn):
+    bad = conn.execute("""
+        SELECT f.game_id FROM game_flow f JOIN games g ON g.id = f.game_id
+        WHERE f.away[cardinality(f.away)] <> g.away_score OR f.home[cardinality(f.home)] <> g.home_score
+           OR f.num_periods <> g.num_periods OR f.lead_changes <> g.lead_changes""").fetchall()
+    assert bad == []
+
+
+def test_lineup_season_sums_lineup_games(conn):
+    bad = conn.execute("""
+        SELECT s.team_code, s.lineup_id FROM lineup_season s
+        JOIN (SELECT team_code, lineup_id, count(*) AS games, sum(pts) AS pts, sum(opp_pts) AS opp, sum(secs) AS secs
+              FROM lineup_games GROUP BY team_code, lineup_id) g USING (team_code, lineup_id)
+        WHERE s.games <> g.games OR s.pts <> g.pts OR s.opp_pts <> g.opp OR abs(s.secs - g.secs) > 0.5""").fetchall()
+    assert bad == []
+    assert one(conn, "SELECT count(*) AS n FROM lineup_season")["n"] == \
+        one(conn, "SELECT count(*) AS n FROM (SELECT DISTINCT team_code, lineup_id FROM lineup_games) x")["n"]
 
 
 def test_injuries_link_to_players_and_games(conn):
