@@ -1,0 +1,97 @@
+{
+  "timestamp": "2026-11-02T15:02:11Z",
+  "status": "success",
+  "note": "Synthetic sample in the shape of site.api.espn.com/apis/site/v2/sports/basketball/nba/injuries (ESPN is not reachable from CI). Replace with a recorded file from `python -m nba_pipeline record-fixtures` when available.",
+  "season": {"year": 2027, "type": 2, "name": "Regular Season"},
+  "injuries": [
+    {
+      "id": "25",
+      "displayName": "Oklahoma City Thunder",
+      "injuries": [
+        {
+          "id": "1001",
+          "status": "Out",
+          "date": "2026-11-01T20:11Z",
+          "shortComment": "Holmgren (knee) remains out after a procedure on his patellar tendon.",
+          "longComment": "Holmgren is expected to be re-evaluated in January.",
+          "athlete": {"displayName": "Chet Holmgren", "position": {"name": "Center", "abbreviation": "C"}, "team": {"abbreviation": "OKC"}},
+          "type": {"name": "INJURY_STATUS_OUT", "description": "out", "abbreviation": "O"},
+          "details": {"type": "Knee", "location": "Leg", "detail": "Patellar Tendon", "side": "Left", "returnDate": "2027-01-15"}
+        },
+        {
+          "id": "1002",
+          "status": "Out",
+          "shortComment": "Duplicate row as ESPN sometimes sends.",
+          "athlete": {"displayName": "Chet Holmgren", "position": {"abbreviation": "C"}},
+          "details": {"type": "Knee"}
+        }
+      ]
+    },
+    {
+      "id": "5",
+      "displayName": "Cleveland Cavaliers",
+      "injuries": [
+        {
+          "id": "2001",
+          "status": "Day-To-Day",
+          "shortComment": "Watson (ankle) is questionable for Monday's game against the Thunder.",
+          "athlete": {"displayName": "Peyton Watson", "position": {"abbreviation": "SF"}},
+          "details": {"type": "Ankle", "detail": "Sprain", "returnDate": "2026-11-03"}
+        },
+        {
+          "id": "2002",
+          "status": "Day-To-Day",
+          "shortComment": "Merrill (hamstring) sat out Saturday's game. He is probable for Wednesday.",
+          "athlete": {"displayName": "Sam Merrill", "position": {"abbreviation": "SG"}},
+          "details": {"type": "Hamstring", "detail": "Not Specified"}
+        }
+      ]
+    },
+    {
+      "id": "9",
+      "displayName": "Golden State Warriors",
+      "injuries": [
+        {
+          "id": "3001",
+          "status": "Out",
+          "shortComment": "Curry will rest Monday against Phoenix.",
+          "athlete": {"displayName": "Stephen Curry", "position": {"abbreviation": "PG"}, "team": {"abbreviation": "GS"}},
+          "details": {"type": "Rest"}
+        },
+        {
+          "id": "3002",
+          "status": "Suspension",
+          "shortComment": "Green was suspended one game by the league.",
+          "athlete": {"displayName": "Draymond Green", "position": {"abbreviation": "PF"}},
+          "details": {}
+        }
+      ]
+    },
+    {
+      "id": "13",
+      "team": {"abbreviation": "LAL", "displayName": "Los Angeles Lakers"},
+      "injuries": [
+        {
+          "id": "4001",
+          "status": "Day-To-Day",
+          "shortComment": "Doncic (ankle) is probable for Monday's game against Miami.",
+          "athlete": {"displayName": "Luka Dončić", "position": {"abbreviation": "PG"}},
+          "details": {"type": "Ankle"}
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "displayName": "Boston Celtics",
+      "injuries": [
+        {
+          "id": "5001",
+          "status": "Out",
+          "shortComment": "George (rest) will not play Monday.",
+          "athlete": {"displayName": "Paul George", "position": {"abbreviation": "F"}},
+          "details": {"type": "Rest"}
+        }
+      ]
+    }
+  ]
+}
