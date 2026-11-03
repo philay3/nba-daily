@@ -6,7 +6,8 @@ engine's golden JSON. What is new only widens the scope, reusing the same code p
 - box order, pre-game averages, deltas and flags for every game (averages use games before that
   game's date), not only last night's;
 - team-vs-team gaps for every game (z against the season's spread of road-minus-home gaps);
-- rest days, records entering the game and upsets for every game up to tonight;
+- rest days, records entering the game and upsets for every game up to tonight, and rest days from the
+  schedule for every game after tonight (so back-to-backs show before either game is played);
 - as-of filtering: only games before `today` count, so a past `--date` rebuilds that morning;
 - empty-season safety (opening night has no completed games).
 
@@ -53,6 +54,8 @@ GAP_STATS = [("Scoring", "Points", "pts", 1), ("Shooting", "Field goal %", "fg_p
              ("Scoring", "Points in the paint", "paint", 1), ("Scoring", "Points off turnovers", "pts_off_to", 1),
              ("Scoring", "Bench points", "bench_pts", 1), ("Scoring", "Offensive rating", "ortg", 1),
              ("Flow", "Largest lead", "largest_lead", 1)]
+# schedule statuses of games that will not be played on their date
+OFF_STATUSES = {"STATUS_POSTPONED", "STATUS_CANCELED", "STATUS_CANCELLED", "STATUS_SUSPENDED"}
 GAP_GROUP_ORDER = {"Scoring": 0, "Shooting": 1, "Possession": 2, "Playmaking": 3, "Defense": 4, "Flow": 5}
 
 
@@ -109,6 +112,20 @@ def _tv(bname, bmkt) -> str:
 def _tip(s_date) -> pd.Timestamp:
     t = pd.Timestamp(s_date)
     return t.tz_convert("UTC") if t.tzinfo else pd.Timestamp(s_date, tz="UTC")
+
+
+def _time_valid(s) -> bool:
+    """False when ESPN has a date but no tip time yet (it then files the game at midnight Eastern)."""
+    v = _clean_value(s.get("time_valid"))
+    return True if v is None else bool(v)
+
+
+def days_since(dates: list[str], day: str) -> int | None:
+    """Days of rest before `day`: whole days since the latest date in `dates` before it (0 = back-to-back)."""
+    i = bisect.bisect_left(dates, day)
+    if i == 0:
+        return None
+    return (dt.date.fromisoformat(day) - dt.date.fromisoformat(dates[i - 1])).days - 1
 
 
 def _clean_value(v):
@@ -485,11 +502,20 @@ def compute(pb: pd.DataFrame, tb: pd.DataFrame, sc: pd.DataFrame, today: dt.date
     played_dates = {t: sorted(g.date.unique()) for t, g in G.groupby("team")}
 
     def rest_days(team: str, day: str):
-        ds = played_dates.get(team) or []
-        i = bisect.bisect_left(ds, day)
-        if i == 0:
-            return None
-        return (dt.date.fromisoformat(day) - dt.date.fromisoformat(ds[i - 1])).days - 1
+        return days_since(played_dates.get(team) or [], day)
+
+    # ---- rest days for games after tonight, from the schedule itself (played or not, postponed games left out):
+    # a team playing on consecutive days is on a back-to-back even before either game is played
+    sched_dates: dict[str, list[str]] = {}
+    for s in sched.values():
+        if str(s.status_type_name) in OFF_STATUSES:
+            continue
+        for t in (s.away, s.home):
+            sched_dates.setdefault(t, []).append(s.game_date)
+    sched_dates = {t: sorted(set(ds)) for t, ds in sched_dates.items()}
+
+    def sched_rest(team: str, day: str):
+        return days_since(sched_dates.get(team) or [], day)
 
     # ---- games: the whole season schedule
     games = []
@@ -501,7 +527,7 @@ def compute(pb: pd.DataFrame, tb: pd.DataFrame, sc: pd.DataFrame, today: dt.date
         tip = _tip(s.date)
         status = str(s.status_type_name)
         row = dict(id=gid, season=int(s.season), season_type=int(s.season_type), game_date=s.game_date,
-                   tip=tip.strftime("%Y-%m-%dT%H:%M:%SZ"), code=gcode[gid], away_code=a, home_code=h,
+                   tip=tip.strftime("%Y-%m-%dT%H:%M:%SZ"), time_valid=_time_valid(s), code=gcode[gid], away_code=a, home_code=h,
                    status=status, status_detail=_clean_value(s.get("status_type_detail")),
                    away_score=None, home_score=None, winner_code=None, away_periods=[], home_periods=[],
                    num_periods=int(periods.get(gid, 4)) if gid in have else None, ot=None, lead_changes=None,
@@ -522,6 +548,8 @@ def compute(pb: pd.DataFrame, tb: pd.DataFrame, sc: pd.DataFrame, today: dt.date
                        away_periods=periods_of(s.away_linescores), home_periods=periods_of(s.home_linescores))
         if s.game_date <= T0:
             row.update(away_rest=rest_days(a, s.game_date), home_rest=rest_days(h, s.game_date))
+        elif status not in OFF_STATUSES:
+            row.update(away_rest=sched_rest(a, s.game_date), home_rest=sched_rest(h, s.game_date))
         games.append(row)
     games.sort(key=lambda g: (g["tip"], g["id"]))
 
