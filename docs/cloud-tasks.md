@@ -29,7 +29,7 @@ Rules:
 - Data comes from the hoopR mirror on raw.githubusercontent.com, which cloud sessions can reach. ESPN is blocked in cloud sessions, so ESPN code is tested on fixtures only.
 - Production is Neon's free plan: 1 GB per project. Never store raw play-by-play in Postgres. Store what you compute from it.
 - Every new table goes in `web/src/db/schema.ts` with a generated migration.
-- Keep the parity tests passing. If a task changes a formula on purpose, regenerate the golden files and say why in docs/DECISIONS.md.
+- Keep the parity tests passing. If a task changes a formula on purpose, regenerate the golden files and say why in docs/DECISIONS.md. `cd pipeline && python3 -I tests/regen_golden.py` rewrites them and lists every field that changed.
 - Every number you add needs a test or a check against an independent source.
 - UI and graphic text: plain words, short sentences, no em dashes.
 - Before opening the pull request: pytest, `npm --prefix web run typecheck`, `npm --prefix web run lint`, `npm --prefix web run build`, and the smoke test. Add screenshots of new pages and graphics to docs/screenshots.
