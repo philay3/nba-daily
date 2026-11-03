@@ -12,6 +12,11 @@ export function f1(v: N): string {
   return isNum(v) ? v.toFixed(1) : "–";
 }
 
+/** Two decimals (points per shot), or an en dash when missing. */
+export function f2(v: N): string {
+  return isNum(v) ? v.toFixed(2) : "–";
+}
+
 export function f0(v: N): string {
   return isNum(v) ? Math.round(v).toString() : "–";
 }
