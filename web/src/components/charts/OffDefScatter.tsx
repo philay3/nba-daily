@@ -74,7 +74,9 @@ export function OffDefScatter({
   for (const t of order) {
     const strong = mode !== "highlight" || hi.has(t.code);
     const fs = strong && mode === "highlight" ? labelFont * 1.35 : labelFont;
-    const w = t.code.length * fs * 0.62;
+    // Team codes are bold capitals, wider than an average character: size the box generously
+    // (plus a little padding) so labels never touch, even if that drops a crowded label.
+    const w = t.code.length * fs * (strong && mode === "highlight" ? 0.8 : 0.72) + 4;
     const h = fs;
     const cx = x(t.ortg);
     const cy = y(t.drtg);
@@ -85,14 +87,34 @@ export function OffDefScatter({
       [cx, cy - g, "middle"],
       [cx, cy + g + h * 0.8, "middle"],
     ];
-    for (const [lx, ly, anchor] of options) {
+    // A highlighted team must always be labeled: try the diagonals too, then take the first spot
+    // that fits on the chart even if it covers a muted dot.
+    const must = strong && mode === "highlight";
+    if (must) {
+      options.push(
+        [cx + g * 0.7, cy - g * 0.7, "start"],
+        [cx - g * 0.7, cy - g * 0.7, "end"],
+        [cx + g * 0.7, cy + g * 0.7 + h * 0.8, "start"],
+        [cx - g * 0.7, cy + g * 0.7 + h * 0.8, "end"],
+      );
+    }
+    const boxOf = ([lx, ly, anchor]: [number, number, "start" | "end" | "middle"]) => {
       const x1 = anchor === "start" ? lx : anchor === "end" ? lx - w : lx - w / 2;
-      const b = { x1, x2: x1 + w, y1: ly - h, y2: ly + 2 };
-      if (b.x1 < m.left || b.x2 > width - m.right || b.y1 < m.top || b.y2 > height - m.bottom) continue;
-      if (overlaps(b)) continue;
-      placed.push(b);
-      labels.push({ t, x: lx, y: ly, anchor, strong });
-      break;
+      return { x1, x2: x1 + w, y1: ly - h, y2: ly + 2 };
+    };
+    const inside = (b: Box) => !(b.x1 < m.left || b.x2 > width - m.right || b.y1 < m.top || b.y2 > height - m.bottom);
+    const covered = (b: Box) =>
+      placed.reduce((s, p) => s + Math.max(0, Math.min(b.x2, p.x2) - Math.max(b.x1, p.x1)) * Math.max(0, Math.min(b.y2, p.y2) - Math.max(b.y1, p.y1)), 0);
+    const fits = options.find((o) => inside(boxOf(o)) && !overlaps(boxOf(o)));
+    // when nothing is free, a highlighted label takes the in-bounds spot that covers the least
+    const pick =
+      fits ??
+      (must
+        ? options.filter((o) => inside(boxOf(o))).sort((a, b) => covered(boxOf(a)) - covered(boxOf(b)))[0]
+        : undefined);
+    if (pick) {
+      placed.push(boxOf(pick));
+      labels.push({ t, x: pick[0], y: pick[1], anchor: pick[2], strong });
     }
   }
 
