@@ -4,7 +4,7 @@ Ready-made tasks for Claude Code cloud sessions. Start a session on this repo an
 
 > Read docs/cloud-tasks.md. Do the "Every task" setup, then do Task N. Commit in small chunks and open a pull request with screenshots of anything new on screen.
 
-Order: Task 0 first and merge it. Tasks 1, 2 and 3 can run at the same time. Tasks 4 and 5 are better after Task 3 (history) is merged. Task 6 can run any time after Task 0.
+Order: Task 0 first and merge it. Tasks 1, 2 and 3 can run at the same time. Task 4 is better after Task 3, since it adds projections to the upcoming days that Task 3 builds. Tasks 5 and 6 can run any time after Task 0.
 
 Every task adds tables, and drizzle-kit numbers migrations in order, so merge one pull request at a time. After a merge, tell the next session: "Rebase on main and regenerate your migration with npm --prefix web run db:generate."
 
@@ -66,21 +66,24 @@ Data: `https://raw.githubusercontent.com/sportsdataverse/hoopR-nba-data/main/nba
 
 Checks: lineup minutes per team per game add up to 240, plus 25 per overtime. Player on-court minutes match box score minutes within a minute.
 
-## Task 3: History and trends
+## Task 3: Every game day this season, and the week ahead
 
-Data: the mirror has player_box, team_box and schedules parquet files back to 2002, for example `.../nba/player_box/parquet/player_box_2016.parquet`.
+This season only. The goal: pick any date and see that day's games, and look ahead at the coming week.
 
-1. Backfill 2016 through 2026 into the same tables, with a season column everywhere. Add a `backfill --from 2016 --to 2026` command that can be rerun and resumed. Compute season aggregates and ranks for every season.
-2. Keep the database well under 1 GB, and report its size after the backfill.
-3. Web: a season picker on Teams, Players and Standings. Add a League trends page with one line chart per stat by season: pace, offensive rating, share of shots from three, eFG%, free throw rate and turnover %. Add season-by-season career tables on player pages, and the same by franchise on team pages, using ESPN team ids so moves and renames line up.
+1. Schedule: keep the whole regular-season schedule in `games`, past and future, refreshed on every run with tip times, TV and postponements.
+2. Date picker: any date this season works on the Today page and in its URL (`?date=YYYY-MM-DD`). Past dates show that day's final scores, each linking to its game page. Future dates show that day's slate.
+3. Week view: the next 7 days of games grouped by date, each with tip time, TV, both records and the line once posted.
+4. Look-ahead details for the next 3 days (today, tomorrow, the day after) get the same matchup breakdown as tonight: season ranks and edges, rest days and back-to-backs worked out from the schedule (a team playing on consecutive days is on a back-to-back, even if neither game is played yet), both injury lists from the latest report with the season scoring each team is missing (labeled with the report date), and the line and total once ESPN posts them. Tomorrow's matchups must always be complete. Days 4 to 7 can show just the schedule, records and TV.
+5. Pipeline: build the upcoming-game fields for the next 3 days on every run, and fetch ESPN odds for those games in the daily job. ESPN is reachable from GitHub Actions and from home, not from cloud sessions, so test the ESPN code with fixtures.
+6. Studio: the matchup preview template can pick any game in the next 3 days.
 
-Checks: per-season game counts match the schedule's finals. Spot-check 3 players' season averages against the mirror's player_season_stats files.
+Checks: past dates match the games table and final scores; back-to-back flags match the schedule; each upcoming day's game count matches the schedule.
 
 ## Task 4: Power ratings and model vs Vegas
 
 1. Ratings: every day, fit opponent-adjusted offensive and defensive ratings per 100 possessions, using ridge regression on game-level efficiency with a home-court term, shrunk toward league average early in the season. Store a daily snapshot so ratings can be charted over time.
-2. Projections for tonight: predicted margin (adjusted net rating difference scaled by expected pace, plus home court and a rest adjustment fitted from data) and win probability (a normal distribution with the spread of outcomes fitted on past seasons).
-3. Backtest: play-by-play rows carry ESPN's pregame spread for each game (game_spread, home_favorite, home_team_spread). Compare the model to that line on past seasons and this one: mean absolute error, record against the spread, and calibration of win probability by bins. Store the results.
+2. Projections for the next 3 days' games: predicted margin (adjusted net rating difference scaled by expected pace, plus home court and a rest adjustment) and win probability (a normal distribution around that margin). Start home court and the spread of outcomes from typical NBA values (about 2 points and about 12 points) and update them from this season's games as the sample grows.
+3. Backtest on this season's games so far: play-by-play rows carry ESPN's pregame spread for each game (game_spread, home_favorite, home_team_spread). Compare the model to that line: mean absolute error, record against the spread, and calibration of win probability by bins. Store the results, and show the number of games next to every figure, since the sample is small early in the season.
 4. Web: a Ratings page (table plus chart over time), the model's line next to ESPN's on Today and game pages, and a Model page with backtest numbers and a calibration chart.
 5. Studio: a "Model vs Vegas" card for one game.
 

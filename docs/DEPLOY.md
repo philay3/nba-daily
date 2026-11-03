@@ -8,7 +8,7 @@ GitHub Actions (daily cron) ──writes──> Neon Postgres <──reads──
 
 ## 1. Neon (Postgres)
 
-1. Sign in at https://neon.tech with GitHub and create a project (Postgres 16 or newer, a region near you, for example US East).
+1. Sign in at https://neon.tech with GitHub and create a project (Postgres 16 or newer). Pick AWS US East 1 (N. Virginia): Vercel runs functions in Washington, D.C. (iad1) by default, so the two sit next to each other.
 2. On the project dashboard open **Connect**, pick the default branch and database, and turn on **Connection pooling**. Copy the pooled connection string. It looks like
    `postgresql://USER:PASSWORD@ep-example-123456-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require`
    (the host has `-pooler` in it). Use this one string everywhere below.
@@ -20,7 +20,7 @@ GitHub Actions (daily cron) ──writes──> Neon Postgres <──reads──
    ```
    To show the demo day instead, run `python3 -m nba_pipeline seed`.
 
-Storage: about 50 MB per full season (box scores, gaps and deltas for every game), so the free tier's 0.5 GB holds several seasons. Free compute scales to zero after a few idle minutes; the first page view after that takes about a second longer. Limits change, so check https://neon.tech/pricing.
+Storage: about 50 MB per full season (box scores, gaps and deltas for every game). The free plan allows 1 GB per project, and writes stop if a project goes over. Free compute scales to zero after a few idle minutes; the first page view after that takes about a second longer. Limits change, so check https://neon.tech/pricing.
 
 ## 2. Vercel (web app)
 
@@ -32,7 +32,7 @@ Storage: about 50 MB per full season (box scores, gaps and deltas for every game
 4. Deploy. Every push to `main` redeploys. Pages render per request, so the build itself never needs the database.
 5. Optional: Vercel's Neon integration can add `DATABASE_URL` for you; if it does, make sure it is the pooled string.
 
-Cost: the Hobby plan is free but is for personal, non-commercial use. If the posts and videos start making money, Vercel expects the Pro plan ($20 a month per member). Check https://vercel.com/pricing.
+Cost: the Hobby plan is free but is for personal, non-commercial use. The Pro plan ($20 a month per member) allows commercial use, so use Pro if the posts and videos make money. Check https://vercel.com/pricing.
 
 ## 3. GitHub Actions (daily pipeline)
 
