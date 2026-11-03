@@ -2,7 +2,7 @@
 
 Data and graphics for daily NBA videos and posts.
 
-A Python pipeline fills Postgres every morning with every regular-season box score so far (ESPN data through the hoopR mirror), team ratings and four factors with league ranks, player season stats and plus-minus, team-vs-team gap significance, player lines against their pre-game averages, every field goal attempt with its spot and zone, tonight's schedule, odds and injuries. A Next.js app shows it as a daily feed, and a graphics studio exports post-ready PNGs.
+A Python pipeline fills Postgres every morning with every regular-season box score so far (ESPN data through the hoopR mirror), team ratings and four factors with league ranks, player season stats and plus-minus, team-vs-team gap significance, player lines against their pre-game averages, every field goal attempt with its spot and zone, tonight's schedule, odds and injuries. From the season's play-by-play it adds the score after every basket, scoring runs, clutch-time stats, five-man lineups and each player's on/off ratings (raw plays are never stored). A Next.js app shows it as a daily feed, and a graphics studio exports post-ready PNGs.
 
 | Path | What it is |
 | --- | --- |
@@ -54,17 +54,17 @@ The `Makefile` wraps the same commands: `make db-up migrate seed web`, `make run
 ## Pages
 
 - `/` Today: games to watch, the full slate with lines and missing scoring, a matchup breakdown (season stats ranked, edges, injuries, rotations), last night's results.
-- `/games/[id]`: final score, quarter flow, where the game was decided, shot charts for both teams with a zone table against the league, both box scores with plus-minus and big deltas.
-- `/teams`, `/teams/[code]`: ratings and four factors on both ends, offense vs defense, net rating; shot profile on offense and defense; team game log and roster.
-- `/players`, `/players/[id]`: sortable season table; the season's shot chart and zones; player game log with points and plus-minus trends.
+- `/games/[id]`: final score, game flow (the score margin after every basket, with scoring runs), where the game was decided, shot charts for both teams with a zone table against the league, both box scores with plus-minus and big deltas.
+- `/teams`, `/teams/[code]`: ratings and four factors on both ends, offense vs defense, net rating; shot profile on offense and defense; top five-man lineups, clutch time, every player's on/off ratings; team game log and roster.
+- `/players`, `/players/[id]`: sortable season table; the season's shot chart and zones; on/off and clutch time; player game log with points and plus-minus trends.
 - `/standings`, `/injuries`.
-- `/studio`: player game card, matchup preview, league offense vs defense, game recap, shot chart. Each exports a PNG at 1080x1350, 1080x1920 or 1920x1080.
+- `/studio`: player game card, matchup preview, league offense vs defense, game recap, shot chart, game flow. Each exports a PNG at 1080x1350, 1080x1920 or 1920x1080.
 
 ## Pipeline commands
 
 | Command | Does |
 | --- | --- |
-| `run --date D [--source-dir DIR] [--inputs DIR] [--no-espn] [--season S]` | Build day D: season stats through D-1, last night's games, tonight's slate, odds, injuries, editorial; upsert into Postgres |
+| `run --date D [--source-dir DIR] [--inputs DIR] [--no-espn] [--season S]` | Build day D: season stats through D-1, last night's games, tonight's slate, odds, injuries, editorial, and the play-by-play tables; upsert into Postgres |
 | `digest --date D` | Print the plain-text fact sheet used to write picks and notes |
 | `export-json --date D --out DIR` | Write the ten dashboard JSON files (same shape as the old Claude dashboard) from the database |
 | `seed` | Load the bundled fixture day with its golden inputs |
@@ -73,11 +73,11 @@ The `Makefile` wraps the same commands: `make db-up migrate seed web`, `make run
 
 ## Screenshots
 
-`docs/screenshots/` has the Today and game pages at 1440 and 390 pixels wide, the Teams page, the shot chart sections of the game, team and player pages (`shots-*.png`), the studio editor, and every studio template at its export size (refresh them with `SCREENSHOTS=1 DATE=2026-11-02 GAME_ID=401909906 PLAYER_ID=3945274 NODE_PATH="$(npm root -g)" npm --prefix web run smoke`).
+`docs/screenshots/` has the Today and game pages at 1440 and 390 pixels wide, the Teams page, a team page (Lakers) and a player page (Luka Doncic), the shot chart sections of the game, team and player pages (`shots-*.png`), the studio editor, and every studio template at its export size (refresh them with `SCREENSHOTS=1 DATE=2026-11-02 GAME_ID=401909906 PLAYER_ID=3945274 NODE_PATH="$(npm root -g)" npm --prefix web run smoke`).
 
 ## Docs
 
-- `docs/DATA.md`: sources, refresh timing, caveats.
+- `docs/DATA.md`: sources, refresh timing, caveats, and how the play-by-play is read (who is on the floor, clutch time, on/off) with its checks.
 - `docs/DEPLOY.md`: Neon + Vercel + GitHub Actions, step by step, with costs.
 - `docs/DECISIONS.md`: why the stack looks the way it does.
 - `AGENTS.md`: architecture, conventions and rules for coding agents.
