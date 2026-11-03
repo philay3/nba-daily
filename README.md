@@ -2,7 +2,7 @@
 
 Data and graphics for daily NBA videos and posts.
 
-A Python pipeline fills Postgres every morning with every regular-season box score so far (ESPN data through the hoopR mirror), team ratings and four factors with league ranks, player season stats and plus-minus, team-vs-team gap significance, player lines against their pre-game averages, tonight's schedule, odds and injuries. A Next.js app shows it as a daily feed, and a graphics studio exports post-ready PNGs.
+A Python pipeline fills Postgres every morning with every regular-season box score so far (ESPN data through the hoopR mirror), team ratings and four factors with league ranks, player season stats and plus-minus, team-vs-team gap significance, player lines against their pre-game averages, every field goal attempt with its spot and zone, tonight's schedule, odds and injuries. A Next.js app shows it as a daily feed, and a graphics studio exports post-ready PNGs.
 
 | Path | What it is |
 | --- | --- |
@@ -37,7 +37,7 @@ Checks:
 
 ```bash
 cd pipeline && python3 -m pytest -q && cd ..        # parity with the old engine, parsers, database load
-npm --prefix web run typecheck && npm --prefix web run lint && npm --prefix web run build
+npm --prefix web run typecheck && npm --prefix web run lint && npm --prefix web test && npm --prefix web run build
 npm install -g playwright && npx playwright install chromium        # once, for the smoke test
 npm --prefix web run start &                                        # or `run dev`
 NODE_PATH="$(npm root -g)" npm --prefix web run smoke               # every page and graphic, PNG export sizes
@@ -54,11 +54,11 @@ The `Makefile` wraps the same commands: `make db-up migrate seed web`, `make run
 ## Pages
 
 - `/` Today: games to watch, the full slate with lines and missing scoring, a matchup breakdown (season stats ranked, edges, injuries, rotations), last night's results.
-- `/games/[id]`: final score, quarter flow, where the game was decided, both box scores with plus-minus and big deltas.
-- `/teams`, `/teams/[code]`: ratings and four factors on both ends, offense vs defense, net rating; team game log and roster.
-- `/players`, `/players/[id]`: sortable season table; player game log with points and plus-minus trends.
+- `/games/[id]`: final score, quarter flow, where the game was decided, shot charts for both teams with a zone table against the league, both box scores with plus-minus and big deltas.
+- `/teams`, `/teams/[code]`: ratings and four factors on both ends, offense vs defense, net rating; shot profile on offense and defense; team game log and roster.
+- `/players`, `/players/[id]`: sortable season table; the season's shot chart and zones; player game log with points and plus-minus trends.
 - `/standings`, `/injuries`.
-- `/studio`: player game card, matchup preview, league offense vs defense, game recap. Each exports a PNG at 1080x1350, 1080x1920 or 1920x1080.
+- `/studio`: player game card, matchup preview, league offense vs defense, game recap, shot chart. Each exports a PNG at 1080x1350, 1080x1920 or 1920x1080.
 
 ## Pipeline commands
 
@@ -73,7 +73,7 @@ The `Makefile` wraps the same commands: `make db-up migrate seed web`, `make run
 
 ## Screenshots
 
-`docs/screenshots/` has the Today and game pages at 1440 and 390 pixels wide, the Teams page, the studio editor, and every studio template at its export size (refresh them with `SCREENSHOTS=1 DATE=2026-11-02 GAME_ID=401909906 NODE_PATH="$(npm root -g)" npm --prefix web run smoke`).
+`docs/screenshots/` has the Today and game pages at 1440 and 390 pixels wide, the Teams page, the shot chart sections of the game, team and player pages (`shots-*.png`), the studio editor, and every studio template at its export size (refresh them with `SCREENSHOTS=1 DATE=2026-11-02 GAME_ID=401909906 PLAYER_ID=3945274 NODE_PATH="$(npm root -g)" npm --prefix web run smoke`).
 
 ## Docs
 
