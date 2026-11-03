@@ -131,14 +131,15 @@ _DESIG = [("Doubtful", r"\bdoubtful\b"), ("Questionable", r"\bquestionable\b"), 
           ("Out", r"\b(ruled out|won't play|will not play|will miss|is out|out for|remains out|sidelined for)\b")]
 
 
-def game_day_status(comment: str, tonight: dt.date) -> str | None:
-    """'X is questionable for Monday's game' on a Monday -> 'Questionable'. None when the comment says nothing about tonight."""
+def game_day_status(comment: str, game_day: dt.date, tonight: bool = True) -> str | None:
+    """'X is questionable for Monday's game' for a Monday game -> 'Questionable'. None when the comment says
+    nothing about that game. "Tonight" counts only when the game is tonight (the report's own date)."""
     if not comment:
         return None
-    day = tonight.strftime("%A").lower()
+    day = game_day.strftime("%A").lower()
     for sentence in re.split(r"(?<=[.!?])\s+", str(comment)):
         s = sentence.lower()
-        if day not in s and "tonight" not in s:
+        if day not in s and not (tonight and "tonight" in s):
             continue
         for status, pattern in _DESIG:
             if re.search(pattern, s):
@@ -168,19 +169,21 @@ def _return_note(ret: dt.date | None, tonight: dt.date) -> str:
 
 def parse_injuries(js: dict, tonight: dt.date, games: list[dict], by_name: dict[str, str] | None = None,
                    by_espn_id: dict[str, str] | None = None, roster: dict[str, list[str]] | None = None) -> list[dict]:
-    """ESPN injuries JSON -> rows for teams playing tonight, in the dashboard's injuries.json shape plus extras.
+    """ESPN injuries JSON -> rows for teams playing in `games`, in the dashboard's injuries.json shape plus extras.
 
-    games: tonight's games as dicts with code, away, home, tip (ISO), id.
+    games: the games ahead (tonight's, or the whole look-ahead) as dicts with code, away, home, tip (ISO), id and
+           optionally game_date (default: tonight). Each row points at its team's next game in that list, and a
+           game-day designation is read for that game's day.
     roster: team -> box-score names; an injury name that matches one after normalizing accents,
             punctuation and suffixes takes the box-score spelling (what the digest calls a NAME CHECK).
     """
     by_name = by_name or {}
     by_espn_id = by_espn_id or {}
     roster = roster or {}
-    playing = {}
-    for g in games:
-        playing[g["away"]] = g
-        playing[g["home"]] = g
+    playing: dict[str, dict] = {}
+    for g in sorted(games, key=lambda g: (g.get("game_date") or tonight.isoformat(), g.get("tip") or "")):
+        playing.setdefault(g["away"], g)
+        playing.setdefault(g["home"], g)
     rows, seen = [], set()
     for team_obj in js.get("injuries") or []:
         for item in team_obj.get("injuries") or []:
@@ -203,7 +206,9 @@ def parse_injuries(js: dict, tonight: dt.date, games: list[dict], by_name: dict[
             comment = item.get("shortComment") or item.get("longComment") or ""
             raw_status = item.get("status") or (item.get("type") or {}).get("description") or ""
             suspended = "suspen" in str(raw_status).lower() or "suspen" in str(details.get("type", "")).lower()
-            status = "Out" if suspended else (game_day_status(comment, tonight) or espn_status(raw_status))
+            g = playing[team]
+            gday = dt.date.fromisoformat(g["game_date"]) if g.get("game_date") else tonight
+            status = "Out" if suspended else (game_day_status(comment, gday, gday == tonight) or espn_status(raw_status))
             injury = "Suspension" if suspended else str(details.get("type") or details.get("location") or "").strip()
             if not injury and re.search(r"\brest\b", str(comment).lower()):
                 injury = "Rest"
@@ -217,15 +222,15 @@ def parse_injuries(js: dict, tonight: dt.date, games: list[dict], by_name: dict[
             if detail.lower() in ("not specified", "other", "unknown"):
                 detail = ""
             note = "; ".join(x for x in (detail, _return_note(ret, tonight)) if x)
-            g = playing[team]
             rows.append(dict(game_id=g["code"], team=team, player=name,
                              pos=short_position((ath.get("position") or {}).get("abbreviation")),
                              status=status, injury=injury, note=note,
                              return_date=ret.isoformat() if ret else None, espn_status=str(raw_status),
-                             game_espn_id=g.get("id"), _tip=g.get("tip") or "", _away=team == g["away"]))
-    rows.sort(key=lambda r: (r["_tip"], r["game_id"], not r["_away"], SEVERITY.get(r["status"], 9), r["player"]))
+                             game_espn_id=g.get("id"), _date=gday.isoformat(), _tip=g.get("tip") or "",
+                             _away=team == g["away"]))
+    rows.sort(key=lambda r: (r["_date"], r["_tip"], r["game_id"], not r["_away"], SEVERITY.get(r["status"], 9), r["player"]))
     for r in rows:
-        r.pop("_tip"), r.pop("_away")
+        r.pop("_date"), r.pop("_tip"), r.pop("_away")
     return rows
 
 

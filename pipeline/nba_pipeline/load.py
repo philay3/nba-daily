@@ -3,7 +3,8 @@
 - Facts (teams, players, games, team_games, player_games) are upserted by primary key; box rows that a
   newer source no longer has (for example a patched game later replaced by the mirror) are removed.
 - Season tables and per-game derived tables are rebuilt for the season.
-- Snapshots (odds, injuries, editorial) replace that date's rows.
+- Snapshots (odds, injuries, editorial, game_previews) replace that date's rows.
+- Games that left this season's schedule without being played are deleted (with their odds and previews).
 Running the same day twice leaves the database unchanged.
 """
 from __future__ import annotations
@@ -22,7 +23,7 @@ KEYS = {
     "team_games": ["game_id", "team_code"],
     "player_games": ["game_id", "player_id"],
 }
-NO_UPDATED_AT = {"game_gaps", "player_game_deltas", "pipeline_runs", "odds", "injuries"}
+NO_UPDATED_AT = {"game_gaps", "player_game_deltas", "pipeline_runs", "odds", "injuries", "game_previews"}
 
 
 def _q(name: str) -> str:
@@ -50,13 +51,21 @@ def write_rows(conn: psycopg.Connection, table: str, rows: list[dict], conflict:
 
 
 def load_build(conn: psycopg.Connection, build: Build, odds: list[dict], injuries: list[dict],
-               editorial: list[dict]) -> dict[str, int]:
+               editorial: list[dict], previews: list[dict] | None = None) -> dict[str, int]:
     """Write everything for one run. The caller owns the transaction."""
     season, day = build.season, build.today.isoformat()
     counts: dict[str, int] = {}
     counts["teams"] = write_rows(conn, "teams", build.teams, KEYS["teams"])
     counts["players"] = write_rows(conn, "players", build.players, KEYS["players"])
     counts["games"] = write_rows(conn, "games", build.games, KEYS["games"])
+    # games ESPN took off this season's schedule (never played, so no box score) go too
+    ids = [g["id"] for g in build.games]
+    if ids:
+        gone = conn.execute(
+            "DELETE FROM games g WHERE g.season = %s AND NOT (g.id = ANY(%s)) "
+            "AND NOT EXISTS (SELECT 1 FROM team_games tg WHERE tg.game_id = g.id) RETURNING g.id",
+            (season, ids)).fetchall()
+        counts["games_removed"] = len(gone)
 
     # box scores: upsert, then drop rows of the same games that the new source no longer has
     counts["team_games"] = write_rows(conn, "team_games", build.team_games, KEYS["team_games"])
@@ -85,6 +94,8 @@ def load_build(conn: psycopg.Connection, build: Build, odds: list[dict], injurie
     counts["injuries"] = write_rows(conn, "injuries", injuries)
     conn.execute("DELETE FROM editorial WHERE date = %s", (day,))
     counts["editorial"] = write_rows(conn, "editorial", editorial)
+    conn.execute("DELETE FROM game_previews WHERE snapshot_date = %s", (day,))
+    counts["game_previews"] = write_rows(conn, "game_previews", previews or [])
     return counts
 
 

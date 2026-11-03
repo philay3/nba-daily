@@ -2,7 +2,8 @@ import Link from "next/link";
 
 import { accentOf } from "@/components/ui/bits";
 import type { MissingRow, Team, TeamSeason, TonightGame } from "@/lib/data";
-import { f1, timeET } from "@/lib/format";
+import { offText } from "@/components/today/DayGames";
+import { f1, tipTime } from "@/lib/format";
 
 export function Slate({
   games,
@@ -20,7 +21,7 @@ export function Slate({
   return (
     <div className="panel table-wrap">
       <table className="data-table">
-        <caption className="sr-only">Every game tonight in tip-off order</caption>
+        <caption className="sr-only">Every game of the day in tip-off order</caption>
         <thead>
           <tr>
             <th>Time (ET)</th>
@@ -29,7 +30,7 @@ export function Slate({
             <th>Line</th>
             <th>Win odds</th>
             <th className="r">Total</th>
-            <th>No rest</th>
+            <th>Back-to-back</th>
             <th className="r">Away missing</th>
             <th className="r">Home missing</th>
             <th>TV</th>
@@ -45,7 +46,7 @@ export function Slate({
             const isSel = selected === g.code;
             return (
               <tr key={g.id} aria-current={isSel ? "true" : undefined}>
-                <td className="num text-ink-2">{timeET(g.tip)}</td>
+                <td className="num text-ink-2">{offText(g.status) ? <span className="font-semibold text-clock">{offText(g.status)}</span> : tipTime(g)}</td>
                 <td className="sticky-col">
                   <Link
                     href={`/?date=${g.game_date}&game=${encodeURIComponent(g.code)}#matchup`}
@@ -76,8 +77,8 @@ export function Slate({
                 </td>
                 <td className="r num">{o?.total ?? ""}</td>
                 <td>{noRest}</td>
-                <td className="r num">{f1(missing.get(g.away_code)?.ppg ?? 0)}</td>
-                <td className="r num">{f1(missing.get(g.home_code)?.ppg ?? 0)}</td>
+                <td className="r num">{f1(missing.get(g.away_code)?.ppg)}</td>
+                <td className="r num">{f1(missing.get(g.home_code)?.ppg)}</td>
                 <td className="text-ink-2">{g.tv}</td>
               </tr>
             );
