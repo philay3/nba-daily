@@ -13,6 +13,7 @@ from nba_pipeline.config import FIXTURES_DIR, season_for
 from nba_pipeline.digest import render_digest
 from nba_pipeline.editorial import EditorialProvider, FileEditorial, NoopEditorial, editorial_rows
 from nba_pipeline.export import dashboard_files, tables_from_build
+from nba_pipeline.previews import check_previews, preview_rows, upcoming_games
 from nba_pipeline.shots import ShotBuild, build_shots
 from nba_pipeline.sources import http_client
 from nba_pipeline.sources.espn import fetch_injuries, fetch_summary, odds_from_summary, parse_injuries
@@ -34,6 +35,7 @@ class RunResult:
     odds: list = field(default_factory=list)
     injuries: list = field(default_factory=list)
     editorial: list = field(default_factory=list)
+    previews: list = field(default_factory=list)
     shots: ShotBuild | None = None
     counts: dict = field(default_factory=dict)
     errors: list = field(default_factory=list)
@@ -92,12 +94,13 @@ def odds_rows_from_file(day: dt.date, odds: dict, tonight: list[dict]) -> list[d
     return rows
 
 
-def odds_rows_from_espn(day: dt.date, tonight: list[dict], client) -> tuple[list[dict], list[str]]:
+def odds_rows_from_espn(day: dt.date, games: list[dict], client) -> tuple[list[dict], list[str]]:
+    """Lines for every game in the look-ahead (tonight first). A game days away may have no line yet."""
     rows, notes = [], []
-    for g in sorted(tonight, key=lambda g: (g["tip"], g["code"])):
+    for g in sorted(games, key=lambda g: (g["game_date"], g["tip"], g["code"])):
         js = fetch_summary(client, g["id"])  # one ESPN request at a time
         if js is None:
-            notes.append(f"no ESPN summary for {g['code']} ({g['id']}), so no line")
+            notes.append(f"no ESPN summary for {g['code']} ({g['id']}, {g['game_date']}), so no line")
             continue
         o = odds_from_summary(js)
         rows.append(dict(snapshot_date=day.isoformat(), game_id=g["id"], game_code=g["code"], provider=o["provider"],
@@ -124,11 +127,13 @@ def injury_rows_from_file(day: dt.date, injuries: list, tonight: list[dict], pla
     return rows
 
 
-def injury_rows_from_espn(day: dt.date, tonight: list[dict], build: Build, client) -> tuple[list[dict], list[str]]:
+def injury_rows_from_espn(day: dt.date, upcoming: list[dict], build: Build, client) -> tuple[list[dict], list[str]]:
+    """ESPN's report for every team playing in the look-ahead; each row points at the team's next game."""
     js = fetch_injuries(client)
     if js is None:
         return [], ["ESPN injuries could not be fetched; injuries left empty for this date"]
-    games = [dict(code=g["code"], away=g["away_code"], home=g["home_code"], tip=g["tip"], id=g["id"]) for g in tonight]
+    games = [dict(code=g["code"], away=g["away_code"], home=g["home_code"], tip=g["tip"], id=g["id"],
+                  game_date=g["game_date"]) for g in upcoming]
     by_name = {t["display_name"]: t["code"] for t in build.teams}
     by_id = {str(t["espn_id"]): t["code"] for t in build.teams if t.get("espn_id") is not None}
     roster: dict[str, list[str]] = {}
@@ -174,7 +179,7 @@ def run_day(date: dt.date, season: int | None = None, source_dir: Path | None = 
             from nba_pipeline.load import finish_run, load_build
             with conn.transaction():
                 result.counts = load_build(conn, result.build, result.odds, result.injuries, result.editorial,
-                                           result.shots)
+                                           previews=result.previews, shots=result.shots)
             finish_run(conn, run_id, "error" if result.errors else "ok", result.counts, result.build.meta.get("notes"),
                        result.warnings, result.errors)
     except BaseException as e:
@@ -197,22 +202,28 @@ def _run(result: RunResult, date: dt.date, season: int, source_dir: Path | None,
         build = compute(pb, tb, sc, date, season, fill_missing=make_filler(inputs.patches, client))
         result.build = build
         tonight = [g for g in build.games if g["game_date"] == date.isoformat()]
+        upcoming = upcoming_games(build)  # tonight, tomorrow and the day after
         notes = build.meta["notes"]
+        covered: set[int] = set()  # games the injury report speaks for
 
         if inputs.odds is not None:
             result.odds = odds_rows_from_file(date, inputs.odds, tonight)
-        elif use_espn and client is not None and tonight:
-            result.odds, extra = odds_rows_from_espn(date, tonight, client)
+        elif use_espn and client is not None and upcoming:
+            result.odds, extra = odds_rows_from_espn(date, upcoming, client)
             notes += extra
         if inputs.injuries is not None:
             result.injuries = injury_rows_from_file(date, inputs.injuries, tonight, build.player_season)
-        elif use_espn and client is not None and tonight:
-            result.injuries, extra = injury_rows_from_espn(date, tonight, build, client)
+            covered = {g["id"] for g in tonight}
+        elif use_espn and client is not None and upcoming:
+            result.injuries, extra = injury_rows_from_espn(date, upcoming, build, client)
             notes += extra
+            if not extra:
+                covered = {g["id"] for g in upcoming}
     finally:
         if client is not None:
             client.close()
     apply_official_seeds(build, inputs.sr_standings)
+    result.previews = preview_rows(build, result.injuries, covered)
 
     # editorial reads the fact sheet, so build the files once without it, then again with it
     provider = provider or (FileEditorial(inputs.editorial) if inputs.editorial is not None else NoopEditorial())
@@ -225,6 +236,9 @@ def _run(result: RunResult, date: dt.date, season: int, source_dir: Path | None,
     result.digest = render_digest(tables, result.files)
     result.errors, result.warnings = run_checks(result.files, inputs.sr_standings,
                                                 editorial_supplied=provider.name != "none")
+    errs, warns = check_previews(build, result.previews, result.odds)
+    result.errors += errs
+    result.warnings += warns
     # shots are optional: a missing or unreadable file, or a game without shots, is a warning, and the box scores
     # load either way (the shot tables keep what they had)
     try:

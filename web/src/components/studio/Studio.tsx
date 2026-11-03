@@ -5,6 +5,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { emptyReason, resolveSelection, selectionToQuery, TemplateFrame } from "@/components/studio/render";
 import { SIZES, TEMPLATES, type SizeKey, type StudioData, type StudioSelection, type TemplateKey } from "@/lib/studio-types";
+import { shortDay } from "@/lib/format";
 
 function useWidth<T extends HTMLElement>() {
   const ref = useRef<T>(null);
@@ -106,14 +107,21 @@ export function Studio({ data, initial }: { data: StudioData; initial: StudioSel
         ) : null}
         {sel.template === "matchup" && data.matchups.length ? (
           <label className="grid gap-1.5 text-[13px] font-semibold text-ink-2">
-            Game (tonight)
+            Game (next 3 days)
             <select className={field} value={sel.matchup} onChange={(e) => set({ matchup: e.target.value })}>
-              {data.matchups.map((m) => (
-                <option key={m.code} value={m.code}>
-                  {m.away} at {m.home}, {m.time_et}
-                  {m.watch ? ` (watch #${m.watch})` : ""}
-                </option>
-              ))}
+              {[0, 1, 2].map((i) => {
+                const list = data.matchups.filter((m) => m.days_ahead === i);
+                return list.length ? (
+                  <optgroup key={i} label={shortDay(list[0].date)}>
+                    {list.map((m) => (
+                      <option key={m.key} value={m.key}>
+                        {m.away} at {m.home}, {m.time_et}
+                        {m.watch ? ` (watch #${m.watch})` : ""}
+                      </option>
+                    ))}
+                  </optgroup>
+                ) : null;
+              })}
             </select>
           </label>
         ) : null}

@@ -3,10 +3,18 @@ name: Daily pipeline
 # 9:45 a.m. in New York. GitHub cron runs in UTC, so both entries are listed: 13:45 UTC is 9:45 EDT
 # (March to November) and 14:45 UTC is 9:45 EST (November to March). The run is idempotent, so the
 # second run of the day is a harmless refresh (it also picks up later injury news).
+# It also runs when a merge to main changes the database or the pipeline, so Neon gets the new
+# tables right away instead of breaking the freshly deployed site until the next morning.
 on:
   schedule:
     - cron: "45 13 * * *"
     - cron: "45 14 * * *"
+  push:
+    branches: [main]
+    paths:
+      - "web/drizzle/**"
+      - "pipeline/**"
+      - ".github/workflows/daily.yml"
   workflow_dispatch:
     inputs:
       date:

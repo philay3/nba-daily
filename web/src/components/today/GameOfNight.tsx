@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { accentOf, WinSplit } from "@/components/ui/bits";
 import type { MissingRow, Team, TeamSeason, TonightGame } from "@/lib/data";
-import { f1, ordinal, signed, timeET } from "@/lib/format";
+import { f1, ordinal, signed, tipTime } from "@/lib/format";
 
 function Side({ team, code, ts, align }: { team?: Team; code: string; ts?: TeamSeason; align: "left" | "right" }) {
   const right = align === "right";
@@ -61,7 +61,7 @@ export function GameOfNight({
           {label}
         </h2>
         <p className="num text-[14px] text-ink-2">
-          {timeET(game.tip)} ET <span className="ml-3 text-muted">{game.tv}</span>
+          {tipTime(game)} ET <span className="ml-3 text-muted">{game.tv}</span>
         </p>
       </div>
       <div className="mt-5 grid grid-cols-[1fr_auto_1fr] items-start gap-3 sm:gap-6">
@@ -77,7 +77,7 @@ export function GameOfNight({
           <div className="flex flex-wrap gap-2">
             <span className="chip num">Line {o?.line ?? "not posted"}</span>
             {o?.total != null ? <span className="chip num">Total {o.total}</span> : null}
-            {noRest.length ? <span className="chip">No rest: {noRest.join(", ")}</span> : null}
+            {noRest.length ? <span className="chip">Back-to-back: {noRest.join(", ")}</span> : null}
             {ma || mh ? (
               <span className="chip num">
                 Missing PPG {game.away_code} {f1(ma)}, {game.home_code} {f1(mh)}

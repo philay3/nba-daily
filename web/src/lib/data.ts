@@ -17,6 +17,7 @@ export type PlayerSeason = typeof t.player_season.$inferSelect;
 export type Gap = typeof t.game_gaps.$inferSelect;
 export type Injury = typeof t.injuries.$inferSelect;
 export type Odds = typeof t.odds.$inferSelect;
+export type Preview = typeof t.game_previews.$inferSelect;
 export type Editorial = typeof t.editorial.$inferSelect;
 export type Run = typeof t.pipeline_runs.$inferSelect;
 
@@ -96,6 +97,43 @@ export async function getOdds(day: string): Promise<Odds[]> {
   return getDb().select().from(t.odds).where(eq(t.odds.snapshot_date, day));
 }
 
+/** The newest line for each game (runs fetch lines for the next 3 days, so a game can have several snapshots). */
+export async function latestOdds(gameIds: number[]): Promise<Map<number, Odds>> {
+  if (!gameIds.length) return new Map();
+  const rows = await getDb()
+    .selectDistinctOn([t.odds.game_id])
+    .from(t.odds)
+    .where(inArray(t.odds.game_id, gameIds))
+    .orderBy(asc(t.odds.game_id), desc(t.odds.snapshot_date));
+  return new Map(rows.map((o) => [o.game_id, o]));
+}
+
+export async function getPreviews(snapshot: string, gameIds: number[]): Promise<Preview[]> {
+  if (!gameIds.length) return [];
+  return getDb()
+    .select()
+    .from(t.game_previews)
+    .where(and(eq(t.game_previews.snapshot_date, snapshot), inArray(t.game_previews.game_id, gameIds)));
+}
+
+/** First and last game date of a season (the range the date picker allows). */
+export async function seasonRange(season: number | null): Promise<{ first: string; last: string } | null> {
+  if (!season) return null;
+  const [row] = await getDb()
+    .select({ first: sql<string>`min(${t.games.game_date})`, last: sql<string>`max(${t.games.game_date})` })
+    .from(t.games)
+    .where(eq(t.games.season, season));
+  return row?.first && row?.last ? { first: row.first, last: row.last } : null;
+}
+
+export async function getGamesBetween(from: string, to: string): Promise<Game[]> {
+  return getDb()
+    .select()
+    .from(t.games)
+    .where(and(gte(t.games.game_date, from), lte(t.games.game_date, to)))
+    .orderBy(asc(t.games.game_date), asc(t.games.tip), asc(t.games.code));
+}
+
 export async function getEditorial(day: string): Promise<Editorial[]> {
   return getDb().select().from(t.editorial).where(eq(t.editorial.date, day)).orderBy(asc(t.editorial.seq));
 }
@@ -162,43 +200,102 @@ export function playerIndex(players: PlayerSeason[]): Map<string, PlayerSeason> 
 
 /* ------------------------------------------------------------------ pages */
 
-export type TonightGame = Game & { odds: Odds | null; pick: Editorial | null };
+/** Days with the full matchup breakdown (tonight, tomorrow, the day after), and the length of the week view. */
+export const LOOKAHEAD_DAYS = 3;
+export const WEEK_DAYS = 7;
+
+export type TonightGame = Game & { odds: Odds | null; pick: Editorial | null; preview: Preview | null };
 export type Result = Game & { away_tg: TeamGame | null; home_tg: TeamGame | null; note: string };
 
-export async function getToday(day: string) {
-  const yday = addDays(day, -1);
-  const [teams, tonightRaw, lastRaw, odds, editorial, injuries, run, season] = await Promise.all([
-    getTeams(),
-    getGamesOn(day),
-    getGamesOn(yday),
-    getOdds(day),
-    getEditorial(day),
-    getInjuries(day),
-    runFor(day),
-    seasonFor(day),
-  ]);
-  const [teamSeason, players] = season ? await Promise.all([getTeamSeason(season), getPlayerSeason(season)]) : [[], []];
-  const lastIds = lastRaw.map((g) => g.id);
-  const [teamGames, box] = await Promise.all([getTeamGames(lastIds), getBoxLines(lastIds)]);
+/**
+ * How a date is shown, measured from the newest pipeline run (the data's "today"):
+ * past      before it: that day's final scores
+ * preview   its date and the 2 days after: the full matchup breakdown from that run's look-ahead
+ * schedule  later: the schedule, records, TV and a line if one is posted
+ */
+export type DayMode = "past" | "preview" | "schedule";
 
-  const oddsBy = new Map(odds.map((o) => [o.game_id, o]));
-  const picks = new Map(editorial.filter((e) => e.kind === "game").map((e) => [e.ref, e]));
-  const notes = new Map(editorial.filter((e) => e.kind === "result").map((e) => [e.ref, e.text]));
-  const tonight: TonightGame[] = tonightRaw.map((g) => ({ ...g, odds: oddsBy.get(g.id) ?? null, pick: picks.get(g.code) ?? null }));
+export function dayMode(day: string, latest: string | null): DayMode {
+  if (!latest) return "schedule";
+  if (day < latest) return "past";
+  return daysBetween(latest, day) < LOOKAHEAD_DAYS ? "preview" : "schedule";
+}
+
+function joinResults(games: Game[], teamGames: TeamGame[], notes: Map<string, string>): Result[] {
   const tg = new Map(teamGames.map((r) => [`${r.game_id}|${r.team_code}`, r]));
-  const results: Result[] = lastRaw
-    .filter((g) => tg.has(`${g.id}|${g.away_code}`))
+  return games
+    .filter((g) => tg.has(`${g.id}|${g.away_code}`) && tg.has(`${g.id}|${g.home_code}`))
     .map((g) => ({
       ...g,
       away_tg: tg.get(`${g.id}|${g.away_code}`) ?? null,
       home_tg: tg.get(`${g.id}|${g.home_code}`) ?? null,
       note: notes.get(g.code) ?? "",
     }));
+}
+
+/** Season scoring missing by team, from the run's look-ahead. Teams the injury report does not cover are left out. */
+function missingFromPreviews(previews: Preview[]): Map<string, MissingRow> {
+  const out = new Map<string, MissingRow>();
+  for (const p of previews) {
+    if (!p.injury_report) continue;
+    out.set(p.away_code, { team: p.away_code, ppg: p.away_missing_ppg ?? 0, mpg: 0, out: p.away_out ?? 0 });
+    out.set(p.home_code, { team: p.home_code, ppg: p.home_missing_ppg ?? 0, mpg: 0, out: p.home_out ?? 0 });
+  }
+  return out;
+}
+
+export async function getToday(day: string) {
+  const yday = addDays(day, -1);
+  const latestRunRow = await latestRun();
+  const latest = latestRunRow?.run_date ?? null;
+  const mode = dayMode(day, latest);
+  // the run whose snapshots this day uses: the newest run for the look-ahead, else the run of that date
+  const snap = mode === "preview" ? latest! : day;
+  const [teams, gamesRaw, lastRaw, editorial, injuries, run, season, nextDayNotes] = await Promise.all([
+    getTeams(),
+    getGamesOn(day),
+    mode === "past" || day === latest ? getGamesOn(yday) : Promise.resolve([] as Game[]),
+    getEditorial(day),
+    mode === "preview" ? getInjuries(snap) : Promise.resolve([] as Injury[]),
+    mode === "preview" ? Promise.resolve(latestRunRow) : runFor(day),
+    seasonFor(day),
+    // notes on a day's results are written the next morning
+    mode === "past" ? getEditorial(addDays(day, 1)) : Promise.resolve([] as Editorial[]),
+  ]);
+  const ids = gamesRaw.map((g) => g.id);
+  const [teamSeason, players, range, oddsBy, previews] = await Promise.all([
+    season ? getTeamSeason(season) : Promise.resolve([] as TeamSeason[]),
+    season ? getPlayerSeason(season) : Promise.resolve([] as PlayerSeason[]),
+    seasonRange(season),
+    latestOdds(ids),
+    mode === "preview" ? getPreviews(snap, ids) : Promise.resolve([] as Preview[]),
+  ]);
+  // past days show their own games' box scores; the look-ahead's first day shows last night's
+  const boxIds = mode === "past" ? ids : lastRaw.map((g) => g.id);
+  const [teamGames, box] = await Promise.all([getTeamGames(boxIds), getBoxLines(boxIds)]);
+
+  const picks = new Map(editorial.filter((e) => e.kind === "game").map((e) => [e.ref, e]));
+  const notes = new Map(editorial.filter((e) => e.kind === "result").map((e) => [e.ref, e.text]));
+  const dayNotes = new Map(nextDayNotes.filter((e) => e.kind === "result").map((e) => [e.ref, e.text]));
+  const previewBy = new Map(previews.map((p) => [p.game_id, p]));
+  const tonight: TonightGame[] = gamesRaw.map((g) => ({
+    ...g,
+    odds: oddsBy.get(g.id) ?? null,
+    pick: picks.get(g.code) ?? null,
+    preview: previewBy.get(g.id) ?? null,
+  }));
+  const results = mode === "past" ? joinResults(gamesRaw, teamGames, dayNotes) : joinResults(lastRaw, teamGames, notes);
   const brief = editorial.filter((e) => e.kind === "date" || e.kind === "headline" || e.kind === "surprise");
+  // the look-ahead's numbers when this run built them; older runs fall back to adding up the injury rows here
+  const missing = previews.length ? missingFromPreviews(previews) : missingScoring(injuries, players);
   return {
     day,
     yday,
+    mode,
+    latest,
+    snapshot: mode === "preview" ? snap : null,
     season,
+    range,
     teams,
     tonight,
     lastNight: lastRaw,
@@ -209,8 +306,25 @@ export async function getToday(day: string) {
     injuries,
     brief,
     run,
-    missing: missingScoring(injuries, players),
+    missing,
   };
+}
+
+export type WeekDay = { day: string; games: TonightGame[]; detailed: boolean };
+
+/** The 7 days from `from`, grouped by date, each game with its newest line. */
+export async function getWeek(from: string, latest: string | null): Promise<WeekDay[]> {
+  const to = addDays(from, WEEK_DAYS - 1);
+  const games = await getGamesBetween(from, to);
+  const odds = await latestOdds(games.map((g) => g.id));
+  return Array.from({ length: WEEK_DAYS }, (_, i) => {
+    const day = addDays(from, i);
+    return {
+      day,
+      detailed: dayMode(day, latest) === "preview",
+      games: games.filter((g) => g.game_date === day).map((g) => ({ ...g, odds: odds.get(g.id) ?? null, pick: null, preview: null })),
+    };
+  });
 }
 
 export type TodayData = Awaited<ReturnType<typeof getToday>>;

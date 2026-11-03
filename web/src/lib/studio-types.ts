@@ -73,7 +73,10 @@ export type MatchupSide = {
 };
 
 export type StudioMatchup = {
+  key: string; // game id: unique across the 3 days, where a game code can repeat
   code: string;
+  days_ahead: number; // 0 = the studio date, 1 = the next day, 2 = the day after
+  report: string | null; // date of the injury report behind the missing numbers, null when none covers the game
   game_id: number;
   date: string;
   time_et: string;
@@ -142,7 +145,7 @@ export type StudioSelection = {
   size: SizeKey;
   handle: string;
   player?: string; // StudioPlayerLine.key
-  matchup?: string; // game code
+  matchup?: string; // game id (a game code also works)
   recap?: string; // game code
   highlight?: string[]; // team codes
 };

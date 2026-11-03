@@ -69,6 +69,7 @@ export const games = pgTable(
     season_type: int("season_type").notNull(), // 2 = regular season
     game_date: date("game_date", { mode: "string" }).notNull(), // America/New_York calendar date
     tip: timestamp("tip", { withTimezone: true, mode: "string" }),
+    time_valid: boolean("time_valid").notNull().default(true), // false while ESPN lists the date but no tip time yet
     code: text("code").notNull(), // AWAY@HOME, e.g. TOR@LAL
     away_code: text("away_code").notNull().references(() => teams.code),
     home_code: text("home_code").notNull().references(() => teams.code),
@@ -89,7 +90,9 @@ export const games = pgTable(
     espn_home_record: text("espn_home_record"),
     venue: text("venue"),
     city: text("city"),
-    away_rest: int("away_rest"), // days of rest before this game (0 = back-to-back), null when unknown
+    // days of rest before this game (0 = back-to-back), null for a team's first game. Up to tonight from the
+    // games played; after tonight from the schedule (played or not, postponed games left out).
+    away_rest: int("away_rest"),
     home_rest: int("home_rest"),
     away_record_before: text("away_record_before"), // W-L entering the game
     home_record_before: text("home_record_before"),
@@ -604,6 +607,45 @@ export const odds = pgTable(
     fetched_at: timestamp("fetched_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.snapshot_date, t.game_id] })],
+);
+
+/**
+ * The look-ahead for the next 3 days (tonight, tomorrow, the day after), rebuilt by every run for its date.
+ * Records are through the run's date; the injury columns use that run's injury report.
+ */
+export const game_previews = pgTable(
+  "game_previews",
+  {
+    snapshot_date: date("snapshot_date", { mode: "string" }).notNull(), // the run's date
+    game_id: int("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    game_code: text("game_code").notNull(),
+    game_date: date("game_date", { mode: "string" }).notNull(),
+    days_ahead: int("days_ahead").notNull(), // 0 = tonight, 1 = tomorrow, 2 = the day after
+    away_code: text("away_code")
+      .notNull()
+      .references(() => teams.code),
+    home_code: text("home_code")
+      .notNull()
+      .references(() => teams.code),
+    away_w: int("away_w").notNull(), // record through the run's date (games before it)
+    away_l: int("away_l").notNull(),
+    home_w: int("home_w").notNull(),
+    home_l: int("home_l").notNull(),
+    away_rest: int("away_rest"), // days of rest from the schedule, null for a first game
+    home_rest: int("home_rest"),
+    away_b2b: boolean("away_b2b").notNull(), // played the day before (second night of a back-to-back)
+    home_b2b: boolean("home_b2b").notNull(),
+    away_b2b_next: boolean("away_b2b_next").notNull(), // plays again the next day (first night of a back-to-back)
+    home_b2b_next: boolean("home_b2b_next").notNull(),
+    injury_report: date("injury_report", { mode: "string" }), // date of the injury report used, null when none covers this game
+    away_out: int("away_out"), // players listed Out or Doubtful, null without a report
+    home_out: int("home_out"),
+    away_missing_ppg: dbl("away_missing_ppg"), // their season points per game (team + exact name match)
+    home_missing_ppg: dbl("home_missing_ppg"),
+  },
+  (t) => [primaryKey({ columns: [t.snapshot_date, t.game_id] }), index("game_previews_date_idx").on(t.game_date)],
 );
 
 /** Picks, tags, notes and brief rows for a date. */

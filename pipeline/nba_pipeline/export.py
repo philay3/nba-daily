@@ -270,7 +270,9 @@ def games_rows(tables: dict) -> list[dict]:
 
 
 def injuries_rows(tables: dict) -> list[dict]:
-    rows = sorted(tables["injuries"], key=lambda r: r["sort_order"])
+    """Tonight's teams only: the report also covers teams that play in the next two days (for the look-ahead)."""
+    tonight = {g[k] for g in tables["tonight"] for k in ("away_code", "home_code")}
+    rows = sorted((r for r in tables["injuries"] if r["team_code"] in tonight), key=lambda r: r["sort_order"])
     return [dict(game_id=r["game_code"], team=r["team_code"], player=r["player_name"], pos=r["position"],
                  status=r["status"], injury=r["injury"], note=r["note"]) for r in rows]
 

@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { accentOf, WinSplit } from "@/components/ui/bits";
 import type { MissingRow, Team, TeamSeason, TonightGame } from "@/lib/data";
-import { f1, timeET } from "@/lib/format";
+import { f1, tipTime } from "@/lib/format";
 
 export function WatchCard({
   game,
@@ -37,7 +37,7 @@ export function WatchCard({
         <span aria-hidden className="h-6 w-1 rounded-[1px]" style={{ background: accentOf(h) }} />
       </Link>
       <p className="num flex flex-wrap gap-x-3 text-[13px] text-ink-2">
-        <span>{timeET(game.tip)} ET</span>
+        <span>{tipTime(game)} ET</span>
         <span className="text-muted">{game.tv}</span>
         {ta && th ? (
           <span>
@@ -53,7 +53,7 @@ export function WatchCard({
         <span className="chip num">Line {o?.line ?? "not posted"}</span>
         {o?.total != null ? <span className="chip num">Total {o.total}</span> : null}
         <span className="chip num">
-          Missing PPG {f1(missing.get(game.away_code)?.ppg ?? 0)} / {f1(missing.get(game.home_code)?.ppg ?? 0)}
+          Missing PPG {f1(missing.get(game.away_code)?.ppg)} / {f1(missing.get(game.home_code)?.ppg)}
         </span>
       </div>
     </article>
