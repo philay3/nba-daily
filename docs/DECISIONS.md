@@ -108,6 +108,22 @@ Short entries: the decision, why, and the trade-off. Newest at the bottom of eac
 ### Odds and injuries for 3 days in the daily job
 - Why: lines often post a day or two before tip. Fetching every game in the window costs about 20 to 45 ESPN requests a run, one at a time. The dashboard's `injuries.json` keeps tonight's teams only, so the old shapes do not change.
 
+### Shots: one row per attempt, rewritten only for games whose shots changed
+- Why: the charts need every attempt's spot. A season has about 220,000 attempts, about 45 MB with indexes, which fits Neon's free plan, but rewriting all of them every morning would churn the database for nothing. `shot_games` keeps a hash of each game's rows, and a run deletes and copies in (with COPY) only the games whose hash changed. Zone profiles are small and rebuilt every run, like `team_season`.
+- Trade-off: a game whose shots disappear from the source keeps its old rows, the same as box scores (a run never deletes facts it no longer sees). The shot file is optional: when it is missing or unreadable the run warns and leaves every shot table as it was.
+
+### Three or two: makes by their points, misses by the line
+- Why: the shot file gives a miss 0 points, so only its spot can say whether it was a three. A make's points are certain, so they decide. The line agrees with them on 99.96% of 2025-26 makes anyway, and this way made threes and points from shots match the box score exactly.
+- Trade-off: right at the line, makes and misses follow slightly different rules (42 of 103,346 makes in 2025-26 would change sides).
+
+### Missed heaves are not attempts
+- Why: since 2025-26 the box score does not count a missed end-of-quarter heave as a field goal attempt, and ESPN types them "Heave Jump Shot". Keeping them would add 85 attempts on the fixture day that no box score has.
+- Trade-off: the backcourt zone keeps only made heaves and the rare long shot that does count, so its FG% means little. Pages show it only when there are attempts.
+
+### Zone profiles carry the league's numbers on every row
+- Why: every zone table compares with the league. Storing the league's FG%, points per shot and share beside each row, plus the gap between the two printed FG% values, keeps that math in Python, where tests cover it; the web only prints.
+- Trade-off: the league numbers are repeated on every row (a few thousand rows a season).
+
 ## Web
 
 ### Any date this season, measured from the newest run
@@ -129,6 +145,24 @@ Short entries: the decision, why, and the trade-off. Newest at the bottom of eac
 
 ### Site pages live in a `(site)` route group, frames in `(bare)`
 - Why: `/studio/frame` must render with no header or footer for screenshots and headless exports; route groups keep URLs unchanged.
+
+### Shot charts: basket at the top, hexes colored by their zone
+- Why: a half court drawn to NBA dimensions with the basket at the top reads like NBA.com's charts. The hexbin view sizes each hex by attempts and colors it by the subject's FG% from the zone most of its shots came from, against the league: the same number as the zone table's +/- column, gray under 5 attempts. Coloring each hex by its own handful of shots flipped neighbors between blue and orange on a team's first seven games, which is noise, not a hot spot.
+- Trade-off: six zones are coarse, so a hot left wing and a cold right wing share one color. The makes and misses view shows every shot as it happened.
+
+### Above the league is blue, below is orange
+- Why: the site's validated diverging pair is plus blue and minus orange, and the zone table's +/- bars use it, so the hexes do too. The view is called "Against the league" rather than "Hot and cold", since hot usually means red.
+- Trade-off: on a team's defense chart, blue means opponents shoot well against them. The panel says so.
+
+### Game and team pages compare two sides in one zone table
+- Why: two narrow tables (one per team, or offense and defense) hid their last columns in half-width panels. One table below both charts puts each side's made and attempted, FG%, gap, points per shot and share next to the league's.
+
+### Shot chart math is tested with plain `node --test`
+- Why: zone counts, hex binning, colors and tooltip text live in `web/src/lib/shots.ts` with no imports. Node 22 runs TypeScript files directly (type stripping), so the tests need no framework. `npm test` runs them, and CI runs it too.
+- Trade-off: the test file imports `./shots.ts` with its extension, so `tsconfig.json` sets `allowImportingTsExtensions` (fine with `noEmit`).
+
+### The studio shot chart covers last night only
+- Why: the studio loads every graphic's data for the date up front. A season of shots for every player and team from last night would be hundreds of thousands of rows late in the season; last night's shots are about 3,000. Season charts live on the player and team pages.
 
 ### The studio handle comes from `NEXT_PUBLIC_BRAND_HANDLE`
 - Why: set it once in `.env` or on Vercel; each graphic can still override it, and the URL keeps the current choice. No browser storage needed.

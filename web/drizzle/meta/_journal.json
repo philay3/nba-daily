@@ -15,6 +15,13 @@
       "when": 1793744597455,
       "tag": "0001_schedule_previews",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793747338170,
+      "tag": "0002_shots",
+      "breakpoints": true
     }
   ]
 }

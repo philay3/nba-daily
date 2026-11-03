@@ -4,14 +4,17 @@ import { notFound } from "next/navigation";
 
 import { QuarterFlow } from "@/components/charts/QuarterFlow";
 import { BoxScore } from "@/components/game/BoxScore";
+import { coverageNote, ShotPanel, ZoneCompare } from "@/components/shots/ShotPanel";
 import { accentOf, Empty, NoDatabase, SectionHead, StatusBadge, TeamMark } from "@/components/ui/bits";
 import { DatabaseNotConfigured } from "@/db/client";
 import { getGamePage, type Game, type Gap, type Team } from "@/lib/data";
 import { addDays, f1, longDate, ordinal, signed, timeET } from "@/lib/format";
+import { shotTitle } from "@/lib/shots";
 
 export const dynamic = "force-dynamic";
 
 type Params = Promise<{ id: string }>;
+type Search = Promise<{ shots?: string }>;
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { id } = await params;
@@ -74,8 +77,9 @@ function Side({ code, score, right, final, game, teams }: { code: string; score:
   );
 }
 
-export default async function GamePage({ params }: { params: Params }) {
+export default async function GamePage({ params, searchParams }: { params: Params; searchParams: Search }) {
   const { id } = await params;
+  const view = (await searchParams).shots === "hex" ? "hex" : "dots";
   const gid = Number(id);
   if (!Number.isInteger(gid)) notFound();
   let data: Awaited<ReturnType<typeof getGamePage>>;
@@ -86,7 +90,7 @@ export default async function GamePage({ params }: { params: Params }) {
     throw e;
   }
   if (!data) notFound();
-  const { game: g, teams, away, home, box, gaps, note, odds, injuries, teamSeason } = data;
+  const { game: g, teams, away, home, box, gaps, note, odds, injuries, teamSeason, shots, zones } = data;
   const a = teams.get(g.away_code);
   const h = teams.get(g.home_code);
   const final = g.status === "STATUS_FINAL" && away && home;
@@ -192,6 +196,49 @@ export default async function GamePage({ params }: { params: Params }) {
               <p className="note mb-4">The biggest team gaps, measured against how far apart two teams usually are in a game this season. Major is 1.5 times the usual gap or more; notable is 1 time.</p>
               <KeyGaps gaps={gaps} />
             </div>
+          </section>
+
+          <section>
+            <SectionHead title="Shot charts">
+              Every field goal attempt, basket at the top. The second view sizes each spot by attempts and colors it by the team&apos;s FG% from that zone against the league average this season.
+            </SectionHead>
+            {shots.length ? (
+              <div className="grid gap-5">
+                <div className="grid gap-5 lg:grid-cols-2">
+                  {[g.away_code, g.home_code].map((code) => {
+                    const t = teams.get(code);
+                    const tg = code === g.away_code ? away : home;
+                    const mine = shots.filter((s) => s.team_code === code);
+                    return (
+                      <ShotPanel
+                        key={code}
+                        label={`${t?.display_name ?? code} shots`}
+                        head={
+                          <div className="flex flex-wrap items-baseline justify-between gap-2">
+                            <TeamMark team={t} code={code} label={t?.display_name ?? code} size="md" />
+                            <span className="num text-[14px] text-ink-2">
+                              {tg?.fgm}-{tg?.fga} from the field, {f1(tg?.fg_pct)}%
+                            </span>
+                          </div>
+                        }
+                        shots={mine.map((s) => ({ ...s, title: shotTitle(s, s.name) }))}
+                        zones={zones.filter((z) => z.team_code === code)}
+                        madeColor={accentOf(t)}
+                        initial={view}
+                        note={coverageNote(mine.length, tg?.fga)}
+                        table={false}
+                      />
+                    );
+                  })}
+                </div>
+                <ZoneCompare
+                  caption={`Shots by zone, ${g.away_code} and ${g.home_code} against the league this season`}
+                  sides={[g.away_code, g.home_code].map((code) => ({ label: code, rows: zones.filter((z) => z.team_code === code) }))}
+                />
+              </div>
+            ) : (
+              <Empty title="No shots for this game yet">The shot file comes from ESPN&apos;s play-by-play; this game is not in it yet.</Empty>
+            )}
           </section>
 
           <section>

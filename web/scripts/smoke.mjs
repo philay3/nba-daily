@@ -5,7 +5,7 @@
  * check its pixel size.
  *
  *   BASE_URL=http://localhost:3000 npm run smoke
- *   SCREENSHOTS=1 DATE=2026-11-02 GAME_ID=401909906 npm run smoke   # also refresh docs/screenshots
+ *   SCREENSHOTS=1 DATE=2026-11-02 GAME_ID=401909906 PLAYER_ID=3945274 npm run smoke   # also refresh docs/screenshots
  *
  * Uses the `playwright` package from the machine (not a project dependency):
  *   npm install -g playwright && npx playwright install chromium
@@ -36,7 +36,7 @@ if (SHOTS) mkdirSync(shotDir, { recursive: true });
 mkdirSync(exportDir, { recursive: true });
 
 const SIZES = { feed: [1080, 1350], story: [1080, 1920], youtube: [1920, 1080] };
-const TEMPLATES = ["player", "matchup", "league", "recap"];
+const TEMPLATES = ["player", "matchup", "league", "recap", "shots"];
 const addDaysIso = (iso, n) => {
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
@@ -47,7 +47,7 @@ const failures = [];
 const passes = [];
 const browser = await chromium.launch();
 
-async function open(path, { width = 1440, height = 900, shot, fullPage = true, checkScroll = true } = {}) {
+async function open(path, { width = 1440, height = 900, shot, fullPage = true, checkScroll = true, clip } = {}) {
   const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1, acceptDownloads: true });
   const errors = [];
   page.on("console", (m) => {
@@ -63,7 +63,14 @@ async function open(path, { width = 1440, height = 900, shot, fullPage = true, c
   if (errors.length) failures.push(`${label}: console errors: ${errors.join(" | ")}`);
   if (checkScroll && scrollWidth > width + 1) failures.push(`${label}: page scrolls sideways (${scrollWidth}px wide)`);
   if (status === 200 && !errors.length) passes.push(label);
-  if (SHOTS && shot) await page.screenshot({ path: join(shotDir, shot), fullPage });
+  if (SHOTS && shot && clip) {
+    // one section of the page, cut from a full-page capture so the sticky header stays out of it
+    const box = await page.locator(clip).first().evaluate((e) => {
+      const r = e.getBoundingClientRect();
+      return { x: r.left + scrollX, y: r.top + scrollY, width: r.width, height: r.height };
+    });
+    await page.screenshot({ path: join(shotDir, shot), fullPage: true, clip: { x: Math.max(0, box.x - 8), y: Math.max(0, box.y - 8), width: box.width + 16, height: box.height + 16 } });
+  } else if (SHOTS && shot) await page.screenshot({ path: join(shotDir, shot), fullPage });
   return page;
 }
 
@@ -71,7 +78,7 @@ async function open(path, { width = 1440, height = 900, shot, fullPage = true, c
 const today = await open(withDate("/"), { shot: "today-1440.png" });
 const firstHref = async (page, prefix) => page.evaluate((p) => document.querySelector(`a[href^="${p}"]`)?.getAttribute("href") ?? null, prefix);
 const gameHref = process.env.GAME_ID ? `/games/${process.env.GAME_ID}` : await firstHref(today, "/games/");
-const playerHref = await firstHref(today, "/players/");
+const playerHref = process.env.PLAYER_ID ? `/players/${process.env.PLAYER_ID}` : await firstHref(today, "/players/");
 await today.close();
 await (await open(withDate("/"), { width: 390, height: 844, shot: "today-390.png" })).close();
 await (await open("/?date=2026-11-03")).close(); // Election Day: no games
@@ -96,9 +103,14 @@ for (const [path, shot] of [
   await (await open(path, { width: 390, height: 844, shot: shot && `${shot}-390.png` })).close();
 }
 
+const shotSection = (title) => `section:has(h2:text-is("${title}"))`;
 if (gameHref) {
   await (await open(gameHref, { shot: "game-1440.png" })).close();
   await (await open(gameHref, { width: 390, height: 844, shot: "game-390.png" })).close();
+  // shot charts: both views, and the section on its own for the docs
+  await (await open(gameHref, { shot: "shots-game-1440.png", clip: shotSection("Shot charts") })).close();
+  await (await open(`${gameHref}?shots=hex`, { shot: "shots-game-hex-1440.png", clip: shotSection("Shot charts") })).close();
+  await (await open(`${gameHref}?shots=hex`, { width: 390, height: 844 })).close();
 } else {
   failures.push("no game link on the Today page");
 }
@@ -107,7 +119,14 @@ for (const path of ["/teams", "/teams/LAL", "/players", playerHref, "/standings"
   await (await open(withDate(path))).close();
   await (await open(withDate(path), { width: 390, height: 844 })).close();
 }
+for (const path of ["/teams/LAL?shots=dots", playerHref ? `${playerHref}?shots=hex` : null]) {
+  if (!path) continue;
+  await (await open(withDate(path))).close();
+  await (await open(withDate(path), { width: 390, height: 844 })).close();
+}
 if (SHOTS) {
+  await (await open(withDate("/teams/LAL"), { shot: "shots-team-1440.png", clip: shotSection("Shot profile") })).close();
+  if (playerHref) await (await open(withDate(playerHref), { shot: "shots-player-1440.png", clip: shotSection("Shot chart") })).close();
   await (await open(withDate("/teams"), { shot: "teams-1440.png" })).close();
   await (await open(withDate("/studio"), { shot: "studio-1440.png", fullPage: false })).close();
   // the matchup preview for a game two days out
@@ -140,6 +159,7 @@ const exportPlan = [
   ["matchup", "story"],
   ["league", "youtube"],
   ["recap", "feed"],
+  ["shots", "story"],
 ];
 for (const [t, size] of exportPlan) {
   const page = await open(withDate(`/studio?t=${t}&size=${size}`), { checkScroll: false });

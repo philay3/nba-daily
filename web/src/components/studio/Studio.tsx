@@ -137,6 +137,31 @@ export function Studio({ data, initial }: { data: StudioData; initial: StudioSel
             </select>
           </label>
         ) : null}
+        {sel.template === "shots" && data.shotCharts.length ? (
+          <label className="grid gap-1.5 text-[13px] font-semibold text-ink-2">
+            Player or team (last night)
+            <select className={field} value={sel.shot} onChange={(e) => set({ shot: e.target.value })}>
+              <optgroup label="Players">
+                {data.shotCharts
+                  .filter((c) => c.kind === "player")
+                  .map((c) => (
+                    <option key={c.key} value={c.key}>
+                      {c.name} {c.team}: {c.fgm}-{c.fga}, {c.pts} pts
+                    </option>
+                  ))}
+              </optgroup>
+              <optgroup label="Teams">
+                {data.shotCharts
+                  .filter((c) => c.kind === "team")
+                  .map((c) => (
+                    <option key={c.key} value={c.key}>
+                      {c.team} {c.home ? "vs" : "at"} {c.opp}: {c.fgm}-{c.fga}
+                    </option>
+                  ))}
+              </optgroup>
+            </select>
+          </label>
+        ) : null}
         {sel.template === "league" ? (
           <div className="grid grid-cols-2 gap-2">
             {[0, 1].map((i) => (

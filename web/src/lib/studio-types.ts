@@ -112,6 +112,28 @@ export type StudioRecap = {
   leaders: { name: string; team: string; pts: number; reb: number; ast: number; pm: number | null }[];
 };
 
+/** One player's or one team's shots in a game last night, with the zones against the season and the league. */
+export type StudioShotChart = {
+  key: string; // "p-<game>-<player>" or "t-<game>-<team>"
+  kind: "player" | "team";
+  game_id: number;
+  date: string;
+  name: string; // player name, or the team's full name
+  team: string;
+  opp: string;
+  home: boolean;
+  won: boolean;
+  team_score: number;
+  opp_score: number;
+  fgm: number;
+  fga: number;
+  tpm: number;
+  tpa: number;
+  pts: number;
+  shots: { x: number; y: number; made: boolean; zone: string }[];
+  zones: { zone: string; fgm: number; fga: number; fg_pct: number | null; season_fg_pct: number | null; lg_fg_pct: number | null }[];
+};
+
 export type StudioData = {
   day: string;
   yday: string;
@@ -121,6 +143,7 @@ export type StudioData = {
   matchups: StudioMatchup[];
   recaps: StudioRecap[];
   league: ScatterTeam[];
+  shotCharts: StudioShotChart[];
 };
 
 export const SIZES = {
@@ -136,6 +159,7 @@ export const TEMPLATES = {
   matchup: "Matchup preview",
   league: "League offense vs defense",
   recap: "Game recap",
+  shots: "Shot chart",
 } as const;
 
 export type TemplateKey = keyof typeof TEMPLATES;
@@ -147,5 +171,6 @@ export type StudioSelection = {
   player?: string; // StudioPlayerLine.key
   matchup?: string; // game id (a game code also works)
   recap?: string; // game code
+  shot?: string; // StudioShotChart.key
   highlight?: string[]; // team codes
 };

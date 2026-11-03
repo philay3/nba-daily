@@ -81,6 +81,15 @@ export function withAlpha(hex: string, alpha: number): string {
   return c ? `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${alpha})` : hex;
 }
 
+/**
+ * Hex colors on the shot chart: FG% against the league average for the same zones, from 9+ points worse
+ * (index 0) to 9+ points better (index 4). The poles are the diverging plus/minus pair; the middle is a true
+ * gray (OKLCH chroma 0.02) so "close to league" reads as nothing. Checked with the dataviz validator's math:
+ * lightness rises evenly from the gray to each pole (0.55, 0.61, 0.67) and every step is at least 3.4:1
+ * against the panel (#101f33) and the studio surface (#0d1a2c).
+ */
+export const HEX_COLORS = ["#e8683f", "#b27163", "#6b7280", "#5989b9", "#3d9be9"] as const;
+
 export const CHART = {
   plus: "#3d9be9",
   minus: "#e8683f",

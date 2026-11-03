@@ -20,6 +20,10 @@ export type Odds = typeof t.odds.$inferSelect;
 export type Preview = typeof t.game_previews.$inferSelect;
 export type Editorial = typeof t.editorial.$inferSelect;
 export type Run = typeof t.pipeline_runs.$inferSelect;
+export type LeagueZone = typeof t.league_shot_zones.$inferSelect;
+export type TeamZone = typeof t.team_shot_zones.$inferSelect;
+export type PlayerZone = typeof t.player_shot_zones.$inferSelect;
+export type GameZone = typeof t.game_shot_zones.$inferSelect;
 
 export type BoxLine = PlayerGame & { delta: Delta | null };
 
@@ -165,6 +169,13 @@ export async function getGaps(gameIds: number[]): Promise<Gap[]> {
   if (!gameIds.length) return [];
   return getDb().select().from(t.game_gaps).where(inArray(t.game_gaps.game_id, gameIds)).orderBy(asc(t.game_gaps.sort_order));
 }
+
+/* ------------------------------------------------------------------ shots */
+
+const shotPoint = { x: t.shots.x, y: t.shots.y, made: t.shots.made, zone: t.shots.zone, game_date: t.shots.game_date };
+
+/** Shots from games before the profile's run date, so the chart and the zone table always cover the same games. */
+const before = <T extends { game_date: string }>(rows: T[], asOf: string | undefined) => (asOf ? rows.filter((r) => r.game_date < asOf) : rows);
 
 /* ------------------------------------------------------------------ derived */
 
@@ -333,7 +344,7 @@ export async function getGamePage(id: number) {
   const db = getDb();
   const [game] = await db.select().from(t.games).where(eq(t.games.id, id)).limit(1);
   if (!game) return null;
-  const [teams, teamGames, box, gaps, notes, odds, injuries, teamSeason] = await Promise.all([
+  const [teams, teamGames, box, gaps, notes, odds, injuries, teamSeason, shots, zones] = await Promise.all([
     getTeams(),
     getTeamGames([id]),
     getBoxLines([id]),
@@ -347,6 +358,13 @@ export async function getGamePage(id: number) {
     db.select().from(t.odds).where(eq(t.odds.game_id, id)).orderBy(desc(t.odds.snapshot_date)).limit(1),
     getInjuries(game.game_date),
     getTeamSeason(game.season),
+    db
+      .select({ ...shotPoint, team_code: t.shots.team_code, period: t.shots.period, clock: t.shots.clock, distance: t.shots.distance, shot_type: t.shots.shot_type, points: t.shots.points, name: t.players.name })
+      .from(t.shots)
+      .leftJoin(t.players, eq(t.players.id, t.shots.player_id))
+      .where(eq(t.shots.game_id, id))
+      .orderBy(asc(t.shots.seq)),
+    db.select().from(t.game_shot_zones).where(eq(t.game_shot_zones.game_id, id)),
   ]);
   const side = (code: string) => teamGames.find((r) => r.team_code === code) ?? null;
   return {
@@ -360,6 +378,8 @@ export async function getGamePage(id: number) {
     odds: odds[0] ?? null,
     injuries: injuries.filter((i) => i.team_code === game.away_code || i.team_code === game.home_code),
     teamSeason: new Map(teamSeason.map((r) => [r.team_code, r])),
+    shots,
+    zones,
   };
 }
 
@@ -375,8 +395,20 @@ export async function getTeamPage(code: string, day: string) {
   const team = teams.get(code);
   if (!team) return null;
   const season = await seasonFor(day);
-  if (!season) return { team, teams, season, row: null, log: [], roster: [], upcoming: [], teamSeason: new Map<string, TeamSeason>() };
-  const [teamSeason, log, roster, upcoming] = await Promise.all([
+  if (!season)
+    return {
+      team,
+      teams,
+      season,
+      row: null,
+      log: [],
+      roster: [],
+      upcoming: [],
+      teamSeason: new Map<string, TeamSeason>(),
+      shots: { offense: [], defense: [] },
+      zones: [] as TeamZone[],
+    };
+  const [teamSeason, log, roster, upcoming, offense, defense, zones] = await Promise.all([
     getTeamSeason(season),
     db
       .select({ tg: t.team_games, g: t.games })
@@ -398,9 +430,24 @@ export async function getTeamPage(code: string, day: string) {
       )
       .orderBy(asc(t.games.tip))
       .limit(5),
+    db.select(shotPoint).from(t.shots).where(and(eq(t.shots.season, season), eq(t.shots.team_code, code))),
+    db.select(shotPoint).from(t.shots).where(and(eq(t.shots.season, season), eq(t.shots.opp_code, code))),
+    db.select().from(t.team_shot_zones).where(and(eq(t.team_shot_zones.season, season), eq(t.team_shot_zones.team_code, code))),
   ]);
   const ts = new Map(teamSeason.map((r) => [r.team_code, r]));
-  return { team, teams, season, row: ts.get(code) ?? null, teamSeason: ts, log, roster, upcoming };
+  const asOf = zones[0]?.as_of;
+  return {
+    team,
+    teams,
+    season,
+    row: ts.get(code) ?? null,
+    teamSeason: ts,
+    log,
+    roster,
+    upcoming,
+    shots: { offense: before(offense, asOf), defense: before(defense, asOf) },
+    zones,
+  };
 }
 
 export async function getPlayersPage(day: string) {
@@ -414,7 +461,7 @@ export async function getPlayerPage(id: number, day: string) {
   const [player] = await db.select().from(t.players).where(eq(t.players.id, id)).limit(1);
   if (!player) return null;
   const season = await seasonFor(day);
-  const [teams, seasonRow, log] = await Promise.all([
+  const [teams, seasonRow, log, shots, zones] = await Promise.all([
     getTeams(),
     season
       ? db.select().from(t.player_season).where(and(eq(t.player_season.season, season), eq(t.player_season.player_id, id))).limit(1)
@@ -429,8 +476,18 @@ export async function getPlayerPage(id: number, day: string) {
       )
       .where(and(eq(t.player_games.player_id, id), season ? eq(t.games.season, season) : sql`true`))
       .orderBy(asc(t.player_games.game_date)),
+    season
+      ? db
+          .select({ ...shotPoint, opp_code: t.shots.opp_code, period: t.shots.period, clock: t.shots.clock, distance: t.shots.distance, shot_type: t.shots.shot_type, points: t.shots.points })
+          .from(t.shots)
+          .where(and(eq(t.shots.season, season), eq(t.shots.player_id, id)))
+          .orderBy(asc(t.shots.game_date), asc(t.shots.game_id), asc(t.shots.seq))
+      : Promise.resolve([]),
+    season
+      ? db.select().from(t.player_shot_zones).where(and(eq(t.player_shot_zones.season, season), eq(t.player_shot_zones.player_id, id)))
+      : Promise.resolve([] as PlayerZone[]),
   ]);
-  return { player, teams, season, row: seasonRow[0] ?? null, log };
+  return { player, teams, season, row: seasonRow[0] ?? null, log, shots: before(shots, zones[0]?.as_of), zones };
 }
 
 export async function getStandings(day: string) {

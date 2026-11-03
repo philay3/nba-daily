@@ -20,6 +20,7 @@ import {
   pgTable,
   primaryKey,
   serial,
+  smallint,
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
@@ -417,6 +418,147 @@ export const player_game_deltas = pgTable(
     }).onDelete("cascade"),
     index("player_game_deltas_player_idx").on(t.player_id),
   ],
+);
+
+/* ------------------------------------------------------------------ shots */
+
+/**
+ * One row per field goal attempt, from hoopR's shot file (ESPN play-by-play). No free throws, and no missed
+ * end-of-quarter heaves, which the box score does not count as attempts. Coordinates are ESPN's, in whole feet,
+ * measured toward the basket the team attacks (docs/DATA.md). Rewritten per game when that game's shots change.
+ */
+export const shots = pgTable(
+  "shots",
+  {
+    game_id: int("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    seq: smallint("seq").notNull(), // order within the game, 1 = first attempt
+    season: int("season").notNull(),
+    game_date: date("game_date", { mode: "string" }).notNull(),
+    period: smallint("period").notNull(),
+    clock: text("clock").notNull(), // as a broadcast shows it: 11:43, or 58.3 in the last minute
+    team_code: text("team_code")
+      .notNull()
+      .references(() => teams.code),
+    opp_code: text("opp_code")
+      .notNull()
+      .references(() => teams.code),
+    player_id: bigint("player_id", { mode: "number" })
+      .notNull()
+      .references(() => players.id),
+    assist_id: bigint("assist_id", { mode: "number" }), // the passer on an assisted make
+    shot_type: text("shot_type").notNull(), // ESPN's play type: Driving Layup Shot, Pullup Jump Shot ...
+    made: boolean("made").notNull(),
+    points: smallint("points").notNull(), // 2 or 3 on a make, 0 on a miss
+    three: boolean("three").notNull(), // a three-point attempt (makes by their points, misses by the line)
+    x: smallint("x").notNull(), // feet left or right of the rim, -25 to 25
+    y: smallint("y").notNull(), // feet out from the rim toward half court; the baseline is at -5, half court at 41.75
+    distance: dbl("distance").notNull(), // feet from the rim
+    zone: text("zone").notNull(), // restricted_area | paint | midrange | corner_3 | above_break_3 | backcourt
+    assisted: boolean("assisted").notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.game_id, t.seq] }),
+    index("shots_player_idx").on(t.season, t.player_id),
+    index("shots_team_idx").on(t.season, t.team_code),
+    index("shots_opp_idx").on(t.season, t.opp_code),
+  ],
+);
+
+/** Per game: how many shots are stored and a hash of them, so a run rewrites only the games whose shots changed. */
+export const shot_games = pgTable(
+  "shot_games",
+  {
+    game_id: int("game_id")
+      .primaryKey()
+      .references(() => games.id, { onDelete: "cascade" }),
+    season: int("season").notNull(),
+    shots: int("shots").notNull(),
+    fingerprint: text("fingerprint").notNull(),
+    updated_at: updatedAt(),
+  },
+  (t) => [index("shot_games_season_idx").on(t.season)],
+);
+
+// zone profiles share one set of numbers; zone is one of the six zones above, or "all"
+const zoneNumbers = () => ({
+  fga: int("fga").notNull(),
+  fgm: int("fgm").notNull(),
+  pts: int("pts").notNull(),
+  ast: int("ast").notNull(), // assisted makes
+  fg_pct: dbl("fg_pct"),
+  pps: dbl("pps"), // points per shot, two decimals
+  share: dbl("share"), // % of this subject's attempts taken from the zone
+  ast_pct: dbl("ast_pct"), // % of makes that were assisted
+});
+const againstLeague = () => ({
+  lg_fg_pct: dbl("lg_fg_pct"), // league numbers for the same zone, this season through the run date
+  lg_pps: dbl("lg_pps"),
+  lg_share: dbl("lg_share"),
+  fg_pct_diff: dbl("fg_pct_diff"), // fg_pct - lg_fg_pct, both as printed
+});
+
+/** Every shot in the league by zone, this season through the run date. */
+export const league_shot_zones = pgTable(
+  "league_shot_zones",
+  {
+    season: int("season").notNull(),
+    zone: text("zone").notNull(),
+    as_of: date("as_of", { mode: "string" }).notNull(),
+    ...zoneNumbers(),
+  },
+  (t) => [primaryKey({ columns: [t.season, t.zone] })],
+);
+
+/** Each team's shots by zone (offense) and its opponents' shots against it (defense). */
+export const team_shot_zones = pgTable(
+  "team_shot_zones",
+  {
+    season: int("season").notNull(),
+    team_code: text("team_code")
+      .notNull()
+      .references(() => teams.code),
+    side: text("side").notNull(), // offense | defense
+    zone: text("zone").notNull(),
+    as_of: date("as_of", { mode: "string" }).notNull(),
+    ...zoneNumbers(),
+    ...againstLeague(),
+  },
+  (t) => [primaryKey({ columns: [t.season, t.team_code, t.side, t.zone] })],
+);
+
+export const player_shot_zones = pgTable(
+  "player_shot_zones",
+  {
+    season: int("season").notNull(),
+    player_id: bigint("player_id", { mode: "number" })
+      .notNull()
+      .references(() => players.id),
+    zone: text("zone").notNull(),
+    team_code: text("team_code").references(() => teams.code), // team in his latest game
+    as_of: date("as_of", { mode: "string" }).notNull(),
+    ...zoneNumbers(),
+    ...againstLeague(),
+  },
+  (t) => [primaryKey({ columns: [t.season, t.player_id, t.zone] })],
+);
+
+/** Each team's shots by zone in one game, against the league this season. */
+export const game_shot_zones = pgTable(
+  "game_shot_zones",
+  {
+    game_id: int("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    team_code: text("team_code")
+      .notNull()
+      .references(() => teams.code),
+    zone: text("zone").notNull(),
+    ...zoneNumbers(),
+    ...againstLeague(),
+  },
+  (t) => [primaryKey({ columns: [t.game_id, t.team_code, t.zone] })],
 );
 
 /* ------------------------------------------------------------------ daily snapshots */

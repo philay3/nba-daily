@@ -59,6 +59,7 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
+      - run: npm test
       - name: Build (pages render per request, so no database is needed here)
         run: npm run build
 
@@ -113,4 +114,4 @@ jobs:
           npm run start -- -p 3000 &
           for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:3000/ && break; sleep 1; done
           # pin the seeded day so the result does not depend on today's date
-          DATE=2026-11-02 GAME_ID=401909906 NODE_PATH="$(npm root -g)" npm run smoke
+          DATE=2026-11-02 GAME_ID=401909906 PLAYER_ID=3945274 NODE_PATH="$(npm root -g)" npm run smoke
