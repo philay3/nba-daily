@@ -25,7 +25,8 @@ def run_checks(files: dict, sr_standings: list | None = None, editorial_supplied
             if sr_rec and sr_rec.get(g[side]) != g[side + "_record"]:
                 warns.append(f"record differs from Sportradar for {g[side]}: box scores {g[side + '_record']}, "
                              f"Sportradar {sr_rec.get(g[side])} (a game may be missing)")
-        if g.get("espn_records") and g["espn_records"] != g["records"]:
+        has_espn = any(ch.isdigit() for ch in g.get("espn_records") or "")  # ESPN sometimes prints no records
+        if has_espn and g["espn_records"] != g["records"]:
             warns.append(f"ESPN schedule shows {g['espn_records']} for {g['game_id']}, box scores give {g['records']}")
         if g["watch"] is not None and g["watch"] not in range(1, 7):
             errs.append(f"watch rank out of range {g['game_id']}")

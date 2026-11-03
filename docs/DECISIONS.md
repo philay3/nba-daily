@@ -85,8 +85,8 @@ Short entries: the decision, why, and the trade-off. Newest at the bottom of eac
 ### Unattended checks: "30 teams" is a warning
 - Why: the engine's finish step treated fewer than 30 teams as an error, which would fail the daily job on opening night. Everything else (period sums, player points versus team points, injury rows for teams not playing, bad statuses, duplicates) stays an error and marks the run as `error` in `pipeline_runs` (the data still loads; the job exits non-zero).
 
-### NBA Cup knockout placeholders are skipped
-- Why: the schedule lists them with `TBD` teams until the matchups are set; they have no team to reference. They load normally once ESPN fills in the teams.
+### Only games between two NBA teams; NBA Cup placeholders skipped
+- Why: a dry run on the full 2025-26 season found ESPN's All-Star games (World, Stars, Stripes) filed as regular season, which would add three fake teams to the ranks and break the team foreign keys, plus placeholder player rows with no athlete. Both are dropped and counted in the run meta. NBA Cup knockout games list `TBD` teams until the matchups are set; they load normally once ESPN fills in the teams.
 - Known gap: the NBA Cup championship game is in hoopR's regular-season files but does not count in the official standings; v1 counts it, like the engine did.
 
 ### Daily schedule: two cron entries, idempotent run

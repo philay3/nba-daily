@@ -124,6 +124,20 @@ def compute(pb: pd.DataFrame, tb: pd.DataFrame, sc: pd.DataFrame, today: dt.date
     pb = pb[pb.season_type == REGULAR_SEASON].copy()
     tb = tb[tb.season_type == REGULAR_SEASON].copy()
     sc = sc[sc.season_type == REGULAR_SEASON].copy()
+    # only games between two of the 30 teams: drops the All-Star games (World, Stars, Stripes...) that ESPN files
+    # as regular season, and NBA Cup knockout placeholders whose teams are still TBD
+    nba = lambda col: col.map(code).isin(CODES)  # noqa: E731
+    sc_nba = nba(sc.away_abbreviation) & nba(sc.home_abbreviation)
+    if (~sc_nba).any():
+        meta["non_nba_games"] = sorted(int(g) for g in sc[~sc_nba].game_id)
+    sc = sc[sc_nba].copy()
+    tb = tb[nba(tb.team_abbreviation) & nba(tb.opponent_team_abbreviation)].copy()
+    pb = pb[nba(pb.team_abbreviation) & nba(pb.opponent_team_abbreviation)].copy()
+    # the mirror occasionally carries placeholder player rows with no athlete (no id, no name, no stats)
+    no_id = pb.athlete_id.isna()
+    if no_id.any():
+        meta["dropped_player_rows"] = int(no_id.sum())
+        pb = pb[~no_id].copy()
     for df in (pb, tb):
         df["game_date"] = df["game_date"].astype(str)
     sc["game_date"] = sc["game_date"].astype(str)

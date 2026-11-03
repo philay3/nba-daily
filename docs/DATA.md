@@ -24,6 +24,7 @@ ESPN's JSON endpoints are public but unofficial and undocumented. They can chang
 ## Scope
 
 - Regular season only: `season_type = 2`. Play-in and playoff games are filtered out, so a day with only postseason games shows no games. Supporting them needs a series model, separate standings logic and a season-type column in the views.
+- Only games between two of the 30 teams count. ESPN files the All-Star games (World, Stars, Stripes and similar) as regular season; they are dropped and listed in the run's `non_nba_games`. Player rows the mirror carries with no athlete at all are dropped too (`dropped_player_rows`).
 - NBA Cup group games count (ESPN files them as regular season). Knockout placeholders whose teams are still `TBD` are skipped until the matchup is set. The championship game is in the files as regular season even though the league does not count it in the standings; v1 does not special-case it.
 - One season per run. `--season 2026` (or any year with hoopR files) rebuilds an older season; dates and `--season` should agree.
 - As of the run date: a run for date D counts only games before D. That makes a backfill for a past date reproduce that morning's numbers.

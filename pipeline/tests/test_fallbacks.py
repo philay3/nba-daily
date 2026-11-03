@@ -113,3 +113,27 @@ def test_every_game_gets_gaps_and_deltas(season):
     played = pd.DataFrame(build.player_games)
     played = played[~played.did_not_play & (played["min"].fillna(0) > 0)]
     assert len(build.player_game_deltas) == len(played)
+
+
+def test_all_star_and_placeholder_rows_are_dropped(season):
+    """ESPN files the All-Star games as regular season; hoopR sometimes has player rows with no athlete."""
+    pb, tb, sc = season
+    fake = 401999999
+    t2 = tb[tb.game_id == GID].copy()
+    t2["game_id"] = fake
+    t2["team_abbreviation"] = t2.team_abbreviation.map({"TOR": "WORLD", "LAL": "STARS"})
+    t2["opponent_team_abbreviation"] = t2.opponent_team_abbreviation.map({"TOR": "WORLD", "LAL": "STARS"})
+    p2 = pb[pb.game_id == GID].copy()
+    p2["game_id"] = fake
+    p2["team_abbreviation"] = p2.team_abbreviation.map({"TOR": "WORLD", "LAL": "STARS"})
+    p2["opponent_team_abbreviation"] = p2.opponent_team_abbreviation.map({"TOR": "WORLD", "LAL": "STARS"})
+    s2 = sc[sc.game_id == GID].copy()
+    s2["game_id"] = fake
+    s2["away_abbreviation"], s2["home_abbreviation"] = "WORLD", "STARS"
+    ghost = pb[pb.game_id == GID].head(1).copy()
+    ghost["athlete_id"] = None
+    build = compute(pd.concat([pb, p2, ghost]), pd.concat([tb, t2]), pd.concat([sc, s2]), DAY, 2027)
+    assert len(build.team_season) == 30
+    assert fake in build.meta["non_nba_games"]
+    assert build.meta["dropped_player_rows"] == 1
+    assert fake not in {g["id"] for g in build.games}
