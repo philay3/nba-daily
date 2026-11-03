@@ -2,13 +2,21 @@ import Link from "next/link";
 
 import { accentOf, PmBar, StatusBadge, TeamMark } from "@/components/ui/bits";
 import type { Injury, MissingRow, PlayerSeason, Team, TeamSeason, TonightGame } from "@/lib/data";
-import { f1, isNum, ordinal, signed, signedInt, timeET } from "@/lib/format";
+import { f1, isNum, longDate, ordinal, shortDay, signed, signedInt, tipTime } from "@/lib/format";
 import { edgeOf, MATCHUP_ROWS, STATUS_ORDER } from "@/lib/metrics";
 
 function restText(r: number | null) {
   if (r === null || r === undefined) return "first game";
-  if (r === 0) return "none (played last night)";
+  if (r === 0) return "none (played the day before)";
   return `${r} day${r === 1 ? "" : "s"}`;
+}
+
+/** Second night: played the day before. First night: plays again the next day. From the schedule. */
+function b2bText(second: boolean, first: boolean) {
+  if (second && first) return "Second night, and plays the next day";
+  if (second) return "Second night";
+  if (first) return "First night";
+  return "No";
 }
 
 function Comparison({ game, teams, teamSeason, missing }: { game: TonightGame; teams: Map<string, Team>; teamSeason: Map<string, TeamSeason>; missing: Map<string, MissingRow> }) {
@@ -48,16 +56,24 @@ function Comparison({ game, teams, teamSeason, missing }: { game: TonightGame; t
             <td className="r">{restText(game.home_rest)}</td>
             <td />
           </tr>
+          {game.preview ? (
+            <tr>
+              <td className="sticky-col">Back-to-back</td>
+              <td className="r">{b2bText(game.preview.away_b2b, game.preview.away_b2b_next)}</td>
+              <td className="r">{b2bText(game.preview.home_b2b, game.preview.home_b2b_next)}</td>
+              <td />
+            </tr>
+          ) : null}
           <tr>
-            <td className="sticky-col">Win odds tonight</td>
+            <td className="sticky-col">Win odds</td>
             <td className="r num">{isNum(game.odds?.away_wp) ? `${game.odds!.away_wp!.toFixed(1)}%` : "–"}</td>
             <td className="r num">{isNum(game.odds?.home_wp) ? `${game.odds!.home_wp!.toFixed(1)}%` : "–"}</td>
             <td />
           </tr>
           <tr>
-            <td className="sticky-col">Scoring missing tonight (PPG)</td>
-            <td className="r num">{f1(missing.get(game.away_code)?.ppg ?? 0)}</td>
-            <td className="r num">{f1(missing.get(game.home_code)?.ppg ?? 0)}</td>
+            <td className="sticky-col">Scoring missing (PPG)</td>
+            <td className="r num">{f1(missing.get(game.away_code)?.ppg)}</td>
+            <td className="r num">{f1(missing.get(game.home_code)?.ppg)}</td>
             <td />
           </tr>
           {groups.map((grp) => (
@@ -123,7 +139,21 @@ function GroupRows({
   );
 }
 
-function InjuryList({ team, code, injuries, players, missing }: { team?: Team; code: string; injuries: Injury[]; players: Map<string, PlayerSeason>; missing?: MissingRow }) {
+function InjuryList({
+  team,
+  code,
+  injuries,
+  players,
+  missing,
+  report,
+}: {
+  team?: Team;
+  code: string;
+  injuries: Injury[];
+  players: Map<string, PlayerSeason>;
+  missing?: MissingRow;
+  report: string | null;
+}) {
   const rows = injuries
     .filter((i) => i.team_code === code)
     .sort((x, y) => (STATUS_ORDER[x.status] ?? 9) - (STATUS_ORDER[y.status] ?? 9) || (players.get(`${code}|${y.player_name}`)?.ppg ?? -1) - (players.get(`${code}|${x.player_name}`)?.ppg ?? -1));
@@ -132,10 +162,15 @@ function InjuryList({ team, code, injuries, players, missing }: { team?: Team; c
       <h3 className="flex items-center gap-2 text-[17px] font-semibold">
         <TeamMark team={team} code={code} /> injury list
       </h3>
-      <p className="note mt-1">
-        Out or doubtful players average <span className="num font-semibold text-ink">{f1(missing?.ppg ?? 0)}</span> points a game this season.
-      </p>
-      {rows.length ? (
+      {report ? (
+        <p className="note mt-1">
+          Out or doubtful players average <span className="num font-semibold text-ink">{f1(missing?.ppg ?? 0)}</span> points a game this season.
+          <span className="block text-muted">From the injury report of {shortDay(report)}.</span>
+        </p>
+      ) : (
+        <p className="note mt-1">No injury report covers this game yet. The daily run adds one for every game in the next 3 days.</p>
+      )}
+      {!report ? null : rows.length ? (
         <ul className="mt-3 grid gap-2.5">
           {rows.map((i) => {
             const p = players.get(`${code}|${i.player_name}`);
@@ -190,7 +225,7 @@ function Rotation({ team, code, players, injuries }: { team?: Team; code: string
           <thead>
             <tr>
               <th className="sticky-col">Player</th>
-              <th>Tonight</th>
+              <th>Status</th>
               <th className="r">GP</th>
               <th className="r">MIN</th>
               <th className="r">PTS</th>
@@ -241,6 +276,7 @@ export function Matchup({
   players,
   injuries,
   missing,
+  report,
 }: {
   game: TonightGame;
   games: TonightGame[];
@@ -249,6 +285,7 @@ export function Matchup({
   players: PlayerSeason[];
   injuries: Injury[];
   missing: Map<string, MissingRow>;
+  report: string | null; // date of the injury report used, null when none covers this game
 }) {
   const pidx = new Map(players.map((p) => [`${p.team_code}|${p.name}`, p]));
   return (
@@ -275,7 +312,8 @@ export function Matchup({
             <span aria-hidden className="h-7 w-1.5 rounded-[1px]" style={{ background: accentOf(teams.get(game.home_code)) }} />
           </span>
           <span className="num flex flex-wrap gap-x-4 text-[14px] text-ink-2">
-            <span>{timeET(game.tip)} ET</span>
+            <span>{longDate(game.game_date)}</span>
+            <span>{tipTime(game)} ET</span>
             <span>{game.tv}</span>
             <span>Line {game.odds?.line ?? "not posted"}</span>
             {game.odds?.total != null ? <span>Total {game.odds.total}</span> : null}
@@ -286,8 +324,8 @@ export function Matchup({
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] xl:items-start">
         <Comparison game={game} teams={teams} teamSeason={teamSeason} missing={missing} />
         <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-1">
-          <InjuryList team={teams.get(game.away_code)} code={game.away_code} injuries={injuries} players={pidx} missing={missing.get(game.away_code)} />
-          <InjuryList team={teams.get(game.home_code)} code={game.home_code} injuries={injuries} players={pidx} missing={missing.get(game.home_code)} />
+          <InjuryList team={teams.get(game.away_code)} code={game.away_code} injuries={injuries} players={pidx} missing={missing.get(game.away_code)} report={report} />
+          <InjuryList team={teams.get(game.home_code)} code={game.home_code} injuries={injuries} players={pidx} missing={missing.get(game.home_code)} report={report} />
         </div>
       </div>
       <Rotation team={teams.get(game.away_code)} code={game.away_code} players={players} injuries={injuries} />
