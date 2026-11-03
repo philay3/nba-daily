@@ -10,6 +10,9 @@ patch_<espn_id>.json:
 
 Team codes may be ESPN's (GS, NY, NO, SA, UTAH, WSH) or ours. Players who did not play: "dnp": true and a "reason".
 Team turnovers are ESPN's totalTurnovers, not turnovers (the total includes team turnovers).
+Team "pts_off_to" is ESPN's turnoverPoints for that team, copied as is. ESPN labels it "Points Conceded Off
+Turnovers": the points the opponent scored off this team's turnovers. compute.py swaps it between the two teams,
+like the mirror's turnover_points, so do not swap it in the file.
 Period scores: [] when unknown; the box score still counts and overtimes are inferred from minutes.
 """
 from __future__ import annotations
