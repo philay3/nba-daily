@@ -30,6 +30,8 @@ inputs dir (odds/injuries/editorial JSON) ────────────�
 
 ## Commands
 
+In a Claude Code cloud session there is no Docker database running and no `.env`: follow the setup in [docs/cloud-tasks.md](docs/cloud-tasks.md) instead of `docker compose`. That file also holds the queued tasks.
+
 ```bash
 cp .env.example .env                 # one env file for pipeline and web
 docker compose up -d db              # Postgres 16 on localhost:5432
