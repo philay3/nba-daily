@@ -58,9 +58,9 @@ function Side({ code, score, right, final, game, teams }: { code: string; score:
   const won = !final || game.winner_code === code;
   const before = right ? game.home_record_before : game.away_record_before;
   return (
-    <div className={`flex items-center gap-3 sm:gap-5 ${right ? "flex-row-reverse text-right" : ""}`}>
+    <div className={`flex items-center gap-3 sm:gap-5 ${right ? "md:flex-row-reverse md:text-right" : ""}`}>
       <span aria-hidden className="h-[72px] w-2.5 rounded-[2px] sm:h-[104px]" style={{ background: accentOf(t) }} />
-      <div className={`grid ${right ? "justify-items-end" : ""}`}>
+      <div className={`grid ${right ? "md:justify-items-end" : ""}`}>
         <Link href={`/teams/${code}`} className="display text-[40px] leading-none no-underline sm:text-[56px]">
           {code}
         </Link>
@@ -69,7 +69,7 @@ function Side({ code, score, right, final, game, teams }: { code: string; score:
           {before ? ` (${before} entering)` : ""}
         </span>
       </div>
-      {final ? <span className={`display num text-[72px] leading-none sm:text-[112px] ${won ? "" : "opacity-50"}`}>{score}</span> : null}
+      {final ? <span className={`display num ml-auto text-[72px] leading-none sm:text-[112px] md:ml-0 ${won ? "" : "opacity-50"}`}>{score}</span> : null}
     </div>
   );
 }

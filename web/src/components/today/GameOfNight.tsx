@@ -19,12 +19,16 @@ function Side({ team, code, ts, align }: { team?: Team; code: string; ts?: TeamS
         {ts ? <span className="num"> {ts.w}-{ts.l}</span> : null}
       </div>
       {ts ? (
-        <div className="num text-[13px] text-muted">
-          Net {signed(ts.net)} <span className="text-ink-2">{ordinal(ts.net_rk)}</span>
-          <span className="mx-2 text-line-strong">/</span>
-          Off {f1(ts.ortg)} <span className="text-ink-2">{ordinal(ts.ortg_rk)}</span>
-          <span className="mx-2 text-line-strong">/</span>
-          Def {f1(ts.drtg)} <span className="text-ink-2">{ordinal(ts.drtg_rk)}</span>
+        <div className={`num flex flex-wrap gap-x-4 gap-y-0.5 text-[13px] text-muted ${right ? "justify-end" : ""}`}>
+          <span className="whitespace-nowrap">
+            Net {signed(ts.net)} <span className="text-ink-2">{ordinal(ts.net_rk)}</span>
+          </span>
+          <span className="whitespace-nowrap">
+            Off {f1(ts.ortg)} <span className="text-ink-2">{ordinal(ts.ortg_rk)}</span>
+          </span>
+          <span className="whitespace-nowrap">
+            Def {f1(ts.drtg)} <span className="text-ink-2">{ordinal(ts.drtg_rk)}</span>
+          </span>
         </div>
       ) : null}
     </div>
