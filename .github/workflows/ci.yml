@@ -59,6 +59,7 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
+      - run: npm test
       - name: Build (pages render per request, so no database is needed here)
         run: npm run build
 
