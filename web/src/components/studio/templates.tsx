@@ -1,0 +1,727 @@
+/**
+ * Studio frames: fixed-size broadcast graphics rendered from database rows.
+ * Pure components (no hooks), so the same code renders in the editor preview, in the
+ * full-size /studio/frame route and in the PNG export.
+ */
+import { Columns } from "@/components/charts/Bars";
+import { OffDefScatter, type ScatterTeam } from "@/components/charts/OffDefScatter";
+import { QuarterFlow } from "@/components/charts/QuarterFlow";
+import { longDate, monthDay, ordinal, signed } from "@/lib/format";
+import type { SizeKey, StudioMatchup, StudioPlayerLine, StudioRecap, StudioTeam } from "@/lib/studio-types";
+import { SIZES } from "@/lib/studio-types";
+
+const C = {
+  bgTop: "#10203a",
+  bgBottom: "#0a1422",
+  panel: "rgba(16, 31, 51, 0.82)",
+  line: "#21395a",
+  ink: "#edf2f8",
+  ink2: "#b6c3d6",
+  muted: "#8293ab",
+  clock: "#ffb627",
+  plus: "#3d9be9",
+  minus: "#e8683f",
+  surface: "#0d1a2c",
+};
+const DISPLAY = '"Big Shoulders Display Variable", "Arial Narrow", sans-serif';
+const SANS = '"Archivo Variable", system-ui, sans-serif';
+const SOURCE = "Data: ESPN via hoopR";
+
+const fit = (text: string, width: number, max: number, ratio = 0.47) => Math.min(max, Math.floor(width / Math.max(1, text.length * ratio)));
+const MISSING_TEAM: StudioTeam = { code: "", name: "", nickname: "", conference: "", primary: "#2d4a70", secondary: "#8293ab", accent: "#8293ab" };
+
+/* ------------------------------------------------------------------ frame */
+
+function CourtLines({ w, h, landscape }: { w: number; h: number; landscape: boolean }) {
+  // half court, 50 ft wide, drawn at the bottom (portrait) or right edge (landscape) as quiet texture
+  const s = landscape ? h / 50 : w / 50;
+  const oy = landscape ? 0 : h - 30 * s;
+  const stroke = "rgba(237, 242, 248, 0.055)";
+  if (landscape) {
+    // rotated: baseline on the right edge
+    const bx = w;
+    const cy = h / 2;
+    const r3 = 23.75 * s;
+    return (
+      <svg width={w} height={h} style={{ position: "absolute", inset: 0 }} aria-hidden>
+        <g fill="none" stroke={stroke} strokeWidth={3}>
+          <rect x={bx - 19 * s} y={cy - 8 * s} width={19 * s} height={16 * s} />
+          <circle cx={bx - 19 * s} cy={cy} r={6 * s} />
+          <path d={`M ${bx} ${cy - 22 * s} H ${bx - 14 * s} A ${r3} ${r3} 0 0 0 ${bx - 14 * s} ${cy + 22 * s} H ${bx}`} />
+          <path d={`M ${bx - 4 * s - 5.25 * s} ${cy - 4 * s} A ${4 * s} ${4 * s} 0 0 0 ${bx - 4 * s - 5.25 * s} ${cy + 4 * s}`} />
+        </g>
+      </svg>
+    );
+  }
+  const cx = w / 2;
+  const by = oy + 30 * s;
+  const r3 = 23.75 * s;
+  return (
+    <svg width={w} height={h} style={{ position: "absolute", inset: 0 }} aria-hidden>
+      <g fill="none" stroke={stroke} strokeWidth={3}>
+        <rect x={cx - 8 * s} y={by - 19 * s} width={16 * s} height={19 * s} />
+        <circle cx={cx} cy={by - 19 * s} r={6 * s} />
+        <path d={`M ${cx - 22 * s} ${by} V ${by - 14 * s} A ${r3} ${r3} 0 0 1 ${cx + 22 * s} ${by - 14 * s} V ${by}`} />
+        <path d={`M ${cx - 4 * s} ${by - 5.25 * s} A ${4 * s} ${4 * s} 0 0 1 ${cx + 4 * s} ${by - 5.25 * s}`} />
+      </g>
+    </svg>
+  );
+}
+
+function Frame({
+  size,
+  handle,
+  bands,
+  children,
+  stamp,
+}: {
+  size: SizeKey;
+  handle: string;
+  bands: StudioTeam[];
+  children: React.ReactNode;
+  stamp: string;
+}) {
+  const { w, h } = SIZES[size];
+  const landscape = w > h;
+  const u = landscape ? h / 1080 : w / 1080;
+  const foot = Math.round(104 * u);
+  return (
+    <div
+      data-frame={size}
+      style={{
+        width: w,
+        height: h,
+        position: "relative",
+        overflow: "hidden",
+        background: `linear-gradient(180deg, ${C.bgTop} 0%, ${C.bgBottom} 72%)`,
+        color: C.ink,
+        fontFamily: SANS,
+        fontVariantNumeric: "lining-nums",
+      }}
+    >
+      <CourtLines w={w} h={h} landscape={landscape} />
+      <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: Math.round(16 * u), display: "flex" }}>
+        {bands.map((t, i) => (
+          <div key={i} style={{ flex: 1, display: "grid", gridTemplateRows: "1fr auto" }}>
+            <div style={{ background: t.primary }} />
+            <div style={{ height: Math.round(5 * u), background: t.secondary }} />
+          </div>
+        ))}
+      </div>
+      <div style={{ position: "absolute", left: 0, right: 0, top: Math.round(16 * u), bottom: foot }}>{children}</div>
+      <div
+        style={{
+          position: "absolute",
+          left: Math.round(72 * u),
+          right: Math.round(72 * u),
+          bottom: 0,
+          height: foot,
+          borderTop: `2px solid ${C.line}`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 24 * u,
+        }}
+      >
+        <span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 44 * u, letterSpacing: "0.01em", color: C.ink }}>{handle}</span>
+        <span style={{ fontSize: 22 * u, color: C.muted, textAlign: "right" }}>
+          {stamp}
+          <br />
+          {SOURCE}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function Label({ children, u }: { children: React.ReactNode; u: number }) {
+  return <div style={{ fontFamily: DISPLAY, fontWeight: 750, fontSize: 36 * u, color: C.clock, letterSpacing: "0.01em" }}>{children}</div>;
+}
+
+function Arrow({ d, u, threshold }: { d: number | null; u: number; threshold: number }) {
+  if (d === null || Math.abs(d) < threshold) return null;
+  return <span style={{ color: d > 0 ? C.plus : C.minus, fontSize: 26 * u, marginLeft: 8 * u }}>{d > 0 ? "▲" : "▼"}</span>;
+}
+
+function PmMeter({ pm, u, width }: { pm: number | null; u: number; width: number }) {
+  const v = pm ?? 0;
+  const max = Math.max(20, Math.abs(v));
+  const half = width / 2;
+  const len = (Math.abs(v) / max) * half;
+  return (
+    <div style={{ position: "relative", width, height: 18 * u }}>
+      <div style={{ position: "absolute", left: half - 1, top: -6 * u, bottom: -6 * u, width: 2, background: C.muted }} />
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          bottom: 0,
+          left: v >= 0 ? half + 2 : half - 2 - len,
+          width: len,
+          background: v >= 0 ? C.plus : C.minus,
+          borderRadius: v >= 0 ? `0 ${6 * u}px ${6 * u}px 0` : `${6 * u}px 0 0 ${6 * u}px`,
+        }}
+      />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ 1. player game card */
+
+export function PlayerCard({ line, teams, size, handle }: { line: StudioPlayerLine; teams: Record<string, StudioTeam>; size: SizeKey; handle: string }) {
+  const { w, h } = SIZES[size];
+  const landscape = w > h;
+  const story = size === "story";
+  const u = landscape ? h / 1080 : w / 1080;
+  const pad = 72 * u;
+  const team = teams[line.team] ?? MISSING_TEAM;
+  const opp = teams[line.opp] ?? MISSING_TEAM;
+  const parts = line.name.split(" ");
+  const first = parts.length > 1 ? parts[0] : "";
+  const last = parts.length > 1 ? parts.slice(1).join(" ") : line.name;
+  const nameWidth = landscape ? 860 * u : w - pad * 2;
+  const lastSize = fit(last, nameWidth, landscape ? 190 * u : story ? 190 * u : 170 * u, 0.45);
+  const result = `${line.team} ${line.won ? "beat" : "lost to"} ${line.opp} ${Math.max(line.team_score, line.opp_score)}-${Math.min(line.team_score, line.opp_score)}`;
+  const fgPct = line.fga ? ((100 * line.fgm) / line.fga).toFixed(1) : "0.0";
+
+  const head = (
+    <div style={{ display: "grid", gap: 10 * u }}>
+      <Label u={u}>{result}</Label>
+      <div style={{ fontSize: 26 * u, color: C.ink2 }}>
+        {longDate(line.date)}, {line.home ? "at home" : `at ${opp.nickname || line.opp}`}, {line.min} minutes
+      </div>
+    </div>
+  );
+  const name = (
+    <div style={{ display: "flex", alignItems: "stretch", gap: 24 * u }}>
+      <div style={{ width: 14 * u, background: team.accent, borderRadius: 3 * u }} />
+      <div style={{ display: "grid" }}>
+        {first ? <div style={{ fontSize: 46 * u, fontWeight: 600, color: C.ink2, lineHeight: 1.1 }}>{first}</div> : null}
+        <div style={{ fontFamily: DISPLAY, fontWeight: 850, fontSize: lastSize, lineHeight: 0.88, letterSpacing: "0.005em" }}>{last}</div>
+        <div style={{ fontSize: 26 * u, color: C.muted, marginTop: 8 * u }}>{team.name}</div>
+      </div>
+    </div>
+  );
+  const big = (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 * u }}>
+      {(
+        [
+          ["Points", line.pts, line.d_pts, 8],
+          ["Rebounds", line.reb, line.d_reb, 5],
+          ["Assists", line.ast, line.d_ast, 4],
+        ] as const
+      ).map(([label, v, d, th]) => (
+        <div key={label} style={{ display: "grid", gap: 6 * u }}>
+          <div style={{ fontFamily: DISPLAY, fontWeight: 850, fontSize: (story ? 250 : landscape ? 230 : 196) * u, lineHeight: 0.82 }}>{v}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 * u }}>
+            <div style={{ width: 36 * u, height: 6 * u, background: team.accent, borderRadius: 2 }} />
+            <span style={{ fontSize: 28 * u, color: C.ink2, fontWeight: 600 }}>{label}</span>
+            <Arrow d={d} u={u} threshold={th} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+  const splits = (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 * u, borderTop: `2px solid ${C.line}`, paddingTop: 24 * u }}>
+      {(
+        [
+          ["Field goals", `${line.fgm}-${line.fga}`, `${fgPct}%`],
+          ["Threes", `${line.tpm}-${line.tpa}`, line.tpa ? `${((100 * line.tpm) / line.tpa).toFixed(1)}%` : ""],
+          ["Free throws", `${line.ftm}-${line.fta}`, line.fta ? `${((100 * line.ftm) / line.fta).toFixed(1)}%` : ""],
+          ["True shooting", line.ts_pct != null ? line.ts_pct.toFixed(1) : "–", "%"],
+        ] as const
+      ).map(([label, v, sub]) => (
+        <div key={label} style={{ display: "grid", gap: 4 * u, alignContent: "start" }}>
+          <span style={{ fontSize: 22 * u, color: C.muted, whiteSpace: "nowrap" }}>{label}</span>
+          <span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: (landscape ? 58 : 64) * u, lineHeight: 1, whiteSpace: "nowrap" }}>
+            {v}
+            {landscape ? null : <span style={{ fontFamily: SANS, fontWeight: 500, fontSize: 22 * u, color: C.ink2, marginLeft: 8 * u }}>{sub}</span>}
+          </span>
+          {landscape ? <span style={{ fontWeight: 500, fontSize: 22 * u, color: C.ink2 }}>{sub}</span> : null}
+        </div>
+      ))}
+    </div>
+  );
+  const pm = (
+    <div style={{ display: "flex", alignItems: "center", gap: 28 * u }}>
+      <div style={{ display: "grid", gap: 4 * u }}>
+        <span style={{ fontSize: 22 * u, color: C.muted }}>Plus-minus</span>
+        <span style={{ fontFamily: DISPLAY, fontWeight: 850, fontSize: 84 * u, lineHeight: 0.9 }}>{signed(line.pm, 0)}</span>
+      </div>
+      <PmMeter pm={line.pm} u={u} width={300 * u} />
+      <div style={{ display: "grid", gap: 4 * u, marginLeft: "auto", textAlign: "right" }}>
+        <span style={{ fontSize: 22 * u, color: C.muted }}>Steals, blocks, turnovers</span>
+        <span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 56 * u, lineHeight: 1 }}>
+          {line.stl} / {line.blk} / {line.tov}
+        </span>
+      </div>
+    </div>
+  );
+  const deltas = line.gp_before ? (
+    <div style={{ display: "grid", gap: 14 * u }}>
+      <span style={{ fontSize: 24 * u, color: C.ink2 }}>Against his average before this game ({line.gp_before} games)</span>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 14 * u }}>
+        {(
+          [
+            ["PTS", line.d_pts, line.avg_pts],
+            ["REB", line.d_reb, line.avg_reb],
+            ["AST", line.d_ast, line.avg_ast],
+          ] as const
+        ).map(([k, d, avg]) => (
+          <div key={k} style={{ border: `2px solid ${C.line}`, borderRadius: 10 * u, padding: `${10 * u}px ${18 * u}px`, display: "flex", alignItems: "baseline", gap: 12 * u, background: C.panel }}>
+            <span style={{ fontSize: 24 * u, color: C.muted, fontWeight: 600 }}>{k}</span>
+            <span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 50 * u, color: C.ink }}>{signed(d)}</span>
+            <span style={{ fontSize: 20 * u, color: C.muted }}>avg {avg?.toFixed(1)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  ) : (
+    <div style={{ fontSize: 26 * u, color: C.ink2 }}>First game of his season.</div>
+  );
+  // the deltas and plus-minus have their own blocks; chips keep the rest (double-double, season high, threes, minutes)
+  const flags = line.flags.filter((f) => !/^(PTS|REB|AST|\+\/-)/.test(f)).slice(0, size === "feed" ? 3 : 4);
+  const chips = flags.length ? (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 12 * u }}>
+      {flags.map((f) => (
+        <span key={f} style={{ border: `2px solid ${C.clock}`, color: C.ink, borderRadius: 999, padding: `${6 * u}px ${20 * u}px`, fontSize: 24 * u, fontWeight: 600 }}>
+          {f}
+        </span>
+      ))}
+    </div>
+  ) : null;
+  const trend =
+    line.trend.length > 1 ? (
+      <div style={{ display: "grid", gap: 8 * u }}>
+        <span style={{ fontSize: 24 * u, color: C.ink2 }}>Points in every game this season</span>
+        <Columns
+          width={landscape ? 900 : w - pad * 2}
+          height={(landscape ? 300 : 340) * u}
+          font={20 * u}
+          color={team.accent}
+          points={line.trend.map((t) => ({ key: t.date, label: monthDay(t.date), value: t.pts, title: `${monthDay(t.date)}: ${t.pts}` }))}
+          avg={line.season?.ppg ?? null}
+          avgLabel={`Avg ${line.season?.ppg?.toFixed(1) ?? ""}`}
+        />
+      </div>
+    ) : null;
+
+  const stamp = `${monthDay(line.date)} ${line.team} vs ${line.opp}`;
+  if (landscape) {
+    return (
+      <Frame size={size} handle={handle} bands={[team]} stamp={stamp}>
+        <div style={{ position: "absolute", inset: `${56 * u}px ${pad}px ${32 * u}px`, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64 * u }}>
+          <div style={{ display: "grid", alignContent: "space-between" }}>
+            {head}
+            {name}
+            {big}
+          </div>
+          <div style={{ display: "grid", alignContent: "space-between", gap: 24 * u }}>
+            {splits}
+            {pm}
+            {deltas}
+            {trend ?? chips}
+          </div>
+        </div>
+      </Frame>
+    );
+  }
+  return (
+    <Frame size={size} handle={handle} bands={[team]} stamp={stamp}>
+      <div style={{ position: "absolute", inset: `${60 * u}px ${pad}px ${36 * u}px`, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 24 * u }}>
+        {head}
+        {name}
+        {big}
+        {splits}
+        {pm}
+        {deltas}
+        {story ? trend : null}
+        {chips}
+      </div>
+    </Frame>
+  );
+}
+
+/* ------------------------------------------------------------------ 2. matchup preview */
+
+function TapeRow({
+  label,
+  a,
+  h,
+  aRank,
+  hRank,
+  aText,
+  hText,
+  aColor,
+  hColor,
+  u,
+  half,
+}: {
+  label: string;
+  a: number | null;
+  h: number | null;
+  aRank: number | null;
+  hRank: number | null;
+  aText: string;
+  hText: string;
+  aColor: string;
+  hColor: string;
+  u: number;
+  half: number;
+}) {
+  const len = (rk: number | null) => (rk ? ((31 - rk) / 30) * half : 0);
+  const aBetter = aRank !== null && hRank !== null && aRank < hRank;
+  const hBetter = aRank !== null && hRank !== null && hRank < aRank;
+  void a;
+  void h;
+  return (
+    <div style={{ display: "grid", gap: 10 * u }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "baseline", gap: 16 * u }}>
+        <span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 56 * u, color: aBetter ? C.ink : C.ink2 }}>
+          {aText} <span style={{ fontFamily: SANS, fontWeight: 600, fontSize: 24 * u, color: C.muted }}>{ordinal(aRank)}</span>
+        </span>
+        <span style={{ fontSize: 26 * u, color: C.ink2, fontWeight: 600, textAlign: "center" }}>{label}</span>
+        <span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 56 * u, color: hBetter ? C.ink : C.ink2, textAlign: "right" }}>
+          <span style={{ fontFamily: SANS, fontWeight: 600, fontSize: 24 * u, color: C.muted }}>{ordinal(hRank)}</span> {hText}
+        </span>
+      </div>
+      <div style={{ position: "relative", height: 18 * u }}>
+        <div style={{ position: "absolute", left: "50%", top: -6 * u, bottom: -6 * u, width: 2, marginLeft: -1, background: C.muted }} />
+        <div style={{ position: "absolute", right: "50%", marginRight: 4 * u, top: 0, bottom: 0, width: len(aRank), background: aColor, borderRadius: `${6 * u}px 0 0 ${6 * u}px`, opacity: aBetter ? 1 : 0.55 }} />
+        <div style={{ position: "absolute", left: "50%", marginLeft: 4 * u, top: 0, bottom: 0, width: len(hRank), background: hColor, borderRadius: `0 ${6 * u}px ${6 * u}px 0`, opacity: hBetter ? 1 : 0.55 }} />
+      </div>
+    </div>
+  );
+}
+
+export function MatchupCard({ m, teams, size, handle }: { m: StudioMatchup; teams: Record<string, StudioTeam>; size: SizeKey; handle: string }) {
+  const { w, h } = SIZES[size];
+  const landscape = w > h;
+  const story = size === "story";
+  const u = landscape ? h / 1080 : w / 1080;
+  const pad = 72 * u;
+  const A = teams[m.away] ?? MISSING_TEAM;
+  const H = teams[m.home] ?? MISSING_TEAM;
+  const a = m.sides[m.away];
+  const hm = m.sides[m.home];
+  const half = ((landscape ? 1100 * u : w - pad * 2) - 8 * u) / 2;
+  const rows: [string, keyof typeof a, keyof typeof a, boolean][] = [
+    ["Net rating", "net", "net_rk", true],
+    ["Offensive rating", "ortg", "ortg_rk", false],
+    ["Defensive rating", "drtg", "drtg_rk", false],
+    ...(story ? ([["Net, last 5 games", "l5_net", "l5_net_rk", true]] as [string, keyof typeof a, keyof typeof a, boolean][]) : []),
+    ...(story ? ([["Effective FG %", "efg", "efg_rk", false], ["Opponent effective FG %", "opp_efg", "opp_efg_rk", false]] as [string, keyof typeof a, keyof typeof a, boolean][]) : []),
+  ];
+  const txt = (v: unknown, sgn: boolean) => (typeof v === "number" ? (sgn ? signed(v) : v.toFixed(1)) : "–");
+  const teamBlock = (t: StudioTeam, code: string, s: typeof a, right: boolean) => (
+    <div style={{ display: "flex", flexDirection: right ? "row-reverse" : "row", alignItems: "center", gap: 24 * u, textAlign: right ? "right" : "left" }}>
+      <div style={{ width: 16 * u, alignSelf: "stretch", background: t.accent, borderRadius: 3 * u }} />
+      <div style={{ display: "grid", gap: 6 * u, justifyItems: right ? "end" : "start" }}>
+        <div style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: (landscape ? 150 : 190) * u, lineHeight: 0.8 }}>{code}</div>
+        <div style={{ fontSize: 30 * u, fontWeight: 600 }}>{t.nickname}</div>
+        <div style={{ fontSize: 26 * u, color: C.ink2 }}>
+          {s.w}-{s.l}
+          {s.rest === 0 ? ", no rest" : ""}
+        </div>
+      </div>
+    </div>
+  );
+  const missingBlock = (code: string, s: typeof a, right: boolean) => (
+    <div style={{ display: "grid", gap: 6 * u, textAlign: right ? "right" : "left" }}>
+      <span style={{ fontSize: 22 * u, color: C.muted }}>Scoring out tonight</span>
+      <span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 60 * u, lineHeight: 1 }}>
+        {s.missing_ppg.toFixed(1)} <span style={{ fontFamily: SANS, fontSize: 22 * u, color: C.ink2, fontWeight: 500 }}>PPG</span>
+      </span>
+      <span style={{ fontSize: 22 * u, color: C.ink2 }}>{s.missing.length ? s.missing.slice(0, 2).map((x) => `${x.name} ${x.ppg?.toFixed(1)}`).join(", ") : `${code} nobody key listed out`}</span>
+    </div>
+  );
+  const wp = m.away_wp != null && m.home_wp != null;
+  const bottom = (
+    <div style={{ display: "grid", gap: 16 * u, borderTop: `2px solid ${C.line}`, paddingTop: 24 * u }}>
+      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 16 * u, fontSize: 30 * u }}>
+        <span>
+          <span style={{ color: C.muted, fontSize: 24 * u }}>Line </span>
+          <span style={{ fontWeight: 700 }}>{m.line ?? "not posted"}</span>
+        </span>
+        {m.total != null ? (
+          <span>
+            <span style={{ color: C.muted, fontSize: 24 * u }}>Total </span>
+            <span style={{ fontWeight: 700 }}>{m.total}</span>
+          </span>
+        ) : null}
+        {wp ? (
+          <span>
+            <span style={{ color: C.muted, fontSize: 24 * u }}>Win odds </span>
+            <span style={{ fontWeight: 700 }}>
+              {m.away} {m.away_wp!.toFixed(1)}%, {m.home} {m.home_wp!.toFixed(1)}%
+            </span>
+          </span>
+        ) : null}
+      </div>
+      {wp ? (
+        <div style={{ display: "flex", height: 16 * u, gap: 4 * u }}>
+          <div style={{ flexGrow: m.away_wp!, background: A.accent, borderRadius: `${8 * u}px 0 0 ${8 * u}px`, opacity: m.away_wp! >= m.home_wp! ? 1 : 0.45 }} />
+          <div style={{ flexGrow: m.home_wp!, background: H.accent, borderRadius: `0 ${8 * u}px ${8 * u}px 0`, opacity: m.home_wp! > m.away_wp! ? 1 : 0.45 }} />
+        </div>
+      ) : null}
+    </div>
+  );
+  const header = (
+    <div style={{ display: landscape ? "flex" : "grid", justifyContent: "space-between", alignItems: "baseline", gap: 10 * u }}>
+      <Label u={u}>{m.tag && m.tag !== "Game of the night" ? m.tag : "Matchup preview"}</Label>
+      <div style={{ fontSize: 26 * u, color: C.ink2 }}>
+        {longDate(m.date)}, {m.time_et} ET, {m.tv}
+      </div>
+    </div>
+  );
+  const tape = (
+    <div style={{ display: "grid", gap: (story ? 40 : landscape ? 18 : 28) * u }}>
+      {rows.map(([label, k, rk, sgn]) => (
+        <TapeRow
+          key={label}
+          label={label}
+          a={a[k] as number | null}
+          h={hm[k] as number | null}
+          aRank={a[rk] as number | null}
+          hRank={hm[rk] as number | null}
+          aText={txt(a[k], sgn)}
+          hText={txt(hm[k], sgn)}
+          aColor={A.accent}
+          hColor={H.accent}
+          u={u}
+          half={half}
+        />
+      ))}
+      <div style={{ fontSize: 20 * u, color: C.muted, textAlign: "center" }}>Bars show league rank: longer is better, out of 30</div>
+    </div>
+  );
+  const stamp = `${monthDay(m.date)} ${m.away} at ${m.home}`;
+  if (landscape) {
+    return (
+      <Frame size={size} handle={handle} bands={[A, H]} stamp={stamp}>
+        <div style={{ position: "absolute", inset: `${48 * u}px ${pad}px ${24 * u}px`, display: "grid", gridTemplateRows: "auto auto 1fr auto", gap: 24 * u }}>
+          {header}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 40 * u }}>
+            {teamBlock(A, m.away, a, false)}
+            <span style={{ fontFamily: DISPLAY, fontSize: 64 * u, color: C.muted, fontWeight: 700 }}>at</span>
+            {teamBlock(H, m.home, hm, true)}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: `${300 * u}px 1fr ${300 * u}px`, alignItems: "center", gap: 40 * u }}>
+            {missingBlock(m.away, a, false)}
+            {tape}
+            {missingBlock(m.home, hm, true)}
+          </div>
+          {bottom}
+        </div>
+      </Frame>
+    );
+  }
+  return (
+    <Frame size={size} handle={handle} bands={[A, H]} stamp={stamp}>
+      <div style={{ position: "absolute", inset: `${56 * u}px ${pad}px ${32 * u}px`, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 24 * u }}>
+        {header}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 20 * u }}>
+          {teamBlock(A, m.away, a, false)}
+          <span style={{ fontFamily: DISPLAY, fontSize: 56 * u, color: C.muted, fontWeight: 700 }}>at</span>
+          {teamBlock(H, m.home, hm, true)}
+        </div>
+        {tape}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 40 * u }}>
+          {missingBlock(m.away, a, false)}
+          {missingBlock(m.home, hm, true)}
+        </div>
+        {bottom}
+      </div>
+    </Frame>
+  );
+}
+
+/* ------------------------------------------------------------------ 3. league offense vs defense */
+
+export function LeagueChart({
+  teams,
+  league,
+  highlight,
+  size,
+  handle,
+  asOf,
+}: {
+  teams: Record<string, StudioTeam>;
+  league: ScatterTeam[];
+  highlight: string[];
+  size: SizeKey;
+  handle: string;
+  asOf: string;
+}) {
+  const { w, h } = SIZES[size];
+  const landscape = w > h;
+  const u = landscape ? h / 1080 : w / 1080;
+  const pad = 72 * u;
+  const hi = highlight.filter((c) => league.some((t) => t.code === c)).slice(0, 2);
+  const bands = hi.length ? hi.map((c) => teams[c] ?? MISSING_TEAM) : [{ ...MISSING_TEAM, primary: "#1f9e8a", secondary: "#9b6fe0" }];
+  const chartW = landscape ? 1180 * u : w - pad * 2;
+  const chartH = landscape ? 760 * u : size === "story" ? 1080 * u : 760 * u;
+  const callouts = hi.map((c) => league.find((t) => t.code === c)!).filter(Boolean);
+  const callout = (t: ScatterTeam) => (
+    <div key={t.code} style={{ display: "flex", gap: 20 * u, alignItems: "stretch" }}>
+      <div style={{ width: 12 * u, background: t.accent, borderRadius: 3 * u }} />
+      <div style={{ display: "grid", gap: 6 * u }}>
+        <div style={{ fontFamily: DISPLAY, fontWeight: 850, fontSize: 64 * u, lineHeight: 0.9 }}>
+          {teams[t.code]?.nickname ?? t.code} <span style={{ fontFamily: SANS, fontSize: 26 * u, fontWeight: 600, color: C.ink2 }}>{t.w}-{t.l}</span>
+        </div>
+        <div style={{ fontSize: 26 * u, color: C.ink2 }}>
+          Offense {t.ortg.toFixed(1)} ({ordinal(t.ortg_rk)}), defense {t.drtg.toFixed(1)} ({ordinal(t.drtg_rk)}), net {signed(t.net)}
+        </div>
+      </div>
+    </div>
+  );
+  const title = (
+    <div style={{ display: "grid", gap: 12 * u }}>
+      <Label u={u}>League landscape</Label>
+      <div style={{ fontFamily: DISPLAY, fontWeight: 850, fontSize: 96 * u, lineHeight: 0.9 }}>Offense vs defense</div>
+      <div style={{ fontSize: 26 * u, color: C.ink2, maxWidth: 900 * u }}>
+        Points scored and allowed per 100 possessions, every team through {monthDay(asOf)}. Up and right is good on both ends.
+      </div>
+    </div>
+  );
+  const chart = <OffDefScatter teams={league} mode={hi.length ? "highlight" : "conference"} highlight={hi} width={chartW} height={chartH} font={20 * u} dot={9 * u} surface={C.surface} />;
+  if (landscape) {
+    return (
+      <Frame size={size} handle={handle} bands={bands} stamp={`Through ${monthDay(asOf)}`}>
+        <div style={{ position: "absolute", inset: `${52 * u}px ${pad}px ${28 * u}px`, display: "grid", gridTemplateColumns: `1fr ${chartW}px`, gap: 48 * u }}>
+          <div style={{ display: "grid", alignContent: "space-between" }}>
+            {title}
+            <div style={{ display: "grid", gap: 36 * u }}>{callouts.map(callout)}</div>
+          </div>
+          <div style={{ alignSelf: "center" }}>{chart}</div>
+        </div>
+      </Frame>
+    );
+  }
+  return (
+    <Frame size={size} handle={handle} bands={bands} stamp={`Through ${monthDay(asOf)}`}>
+      <div style={{ position: "absolute", inset: `${56 * u}px ${pad}px ${32 * u}px`, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 28 * u }}>
+        {title}
+        {chart}
+        <div style={{ display: "grid", gap: 28 * u }}>{callouts.map(callout)}</div>
+      </div>
+    </Frame>
+  );
+}
+
+/* ------------------------------------------------------------------ 4. game recap */
+
+export function GameRecap({ r, teams, size, handle }: { r: StudioRecap; teams: Record<string, StudioTeam>; size: SizeKey; handle: string }) {
+  const { w, h } = SIZES[size];
+  const landscape = w > h;
+  const story = size === "story";
+  const u = landscape ? h / 1080 : w / 1080;
+  const pad = 72 * u;
+  const A = teams[r.away] ?? MISSING_TEAM;
+  const H = teams[r.home] ?? MISSING_TEAM;
+  const scoreRow = (t: StudioTeam, code: string, score: number, periods: number[]) => {
+    const won = r.winner === code;
+    return (
+      <div style={{ display: "grid", gridTemplateColumns: `${18 * u}px 1fr auto`, alignItems: "center", gap: 24 * u, opacity: won ? 1 : 0.62 }}>
+        <div style={{ alignSelf: "stretch", background: t.accent, borderRadius: 3 * u }} />
+        <div style={{ display: "grid" }}>
+          <span style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: (story || landscape ? 112 : 96) * u, lineHeight: 0.85 }}>{code}</span>
+          <span style={{ fontSize: 26 * u, color: C.ink2 }}>
+            {t.nickname} <span style={{ color: C.muted }}>{periods.join("  ")}</span>
+          </span>
+        </div>
+        <span style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: (landscape ? 200 : story ? 210 : 172) * u, lineHeight: 0.8 }}>{score}</span>
+      </div>
+    );
+  };
+  const header = (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+      <Label u={u}>{r.ot ? (r.ot === 1 ? "Final, overtime" : `Final, ${r.ot} overtimes`) : "Final"}</Label>
+      <span style={{ fontSize: 26 * u, color: C.ink2 }}>{longDate(r.date)}</span>
+    </div>
+  );
+  const flow = (
+    <div style={{ display: "grid", gap: 10 * u }}>
+      <span style={{ fontSize: 24 * u, color: C.ink2 }}>Margin after each quarter (above the line {r.away} led)</span>
+      <QuarterFlow
+        away={r.away}
+        home={r.home}
+        awayPeriods={r.away_periods}
+        homePeriods={r.home_periods}
+        awayColor={A.accent}
+        homeColor={H.accent}
+        width={landscape ? 860 * u : w - pad * 2}
+        height={(story ? 360 : landscape ? 330 : 220) * u}
+        font={24 * u}
+        surface={C.surface}
+      />
+    </div>
+  );
+  const gaps = r.gaps.length ? (
+    <div style={{ display: "grid", gap: 16 * u }}>
+      <span style={{ fontSize: 24 * u, color: C.ink2 }}>Where it was decided</span>
+      {r.gaps.map((g) => (
+        <div key={g.stat} style={{ display: "grid", gridTemplateColumns: "1fr auto", alignItems: "baseline", gap: 16 * u, borderLeft: `6px solid ${g.level === "Major" ? C.clock : C.line}`, paddingLeft: 18 * u }}>
+          <span style={{ fontSize: 30 * u, fontWeight: 650 }}>{g.stat}</span>
+          <span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: (story || landscape ? 48 : 42) * u }}>
+            {r.away} {g.away_txt}, {r.home} {g.home_txt}
+          </span>
+        </div>
+      ))}
+    </div>
+  ) : null;
+  const leaders = r.leaders.length ? (
+    <div style={{ display: "grid", gridTemplateColumns: `repeat(${r.leaders.length}, 1fr)`, gap: 24 * u, borderTop: `2px solid ${C.line}`, paddingTop: 22 * u }}>
+      {r.leaders.map((l) => (
+        <div key={l.name} style={{ display: "grid", gap: 4 * u }}>
+          <span style={{ fontSize: 22 * u, color: C.muted }}>{l.team} leader</span>
+          <span style={{ fontSize: 32 * u, fontWeight: 700 }}>{l.name}</span>
+          <span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 52 * u }}>
+            {l.pts}-{l.reb}-{l.ast} <span style={{ fontFamily: SANS, fontSize: 22 * u, color: C.ink2, fontWeight: 500 }}>PTS-REB-AST, {signed(l.pm, 0)}</span>
+          </span>
+        </div>
+      ))}
+    </div>
+  ) : null;
+  const meta = (
+    <div style={{ fontSize: 24 * u, color: C.ink2 }}>
+      Largest leads {r.away} {r.away_max_lead}, {r.home} {r.home_max_lead}. Lead changes {r.lead_changes}.
+    </div>
+  );
+  const stamp = `${monthDay(r.date)} ${r.away} at ${r.home}`;
+  if (landscape) {
+    return (
+      <Frame size={size} handle={handle} bands={[A, H]} stamp={stamp}>
+        <div style={{ position: "absolute", inset: `${52 * u}px ${pad}px ${28 * u}px`, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 72 * u }}>
+          <div style={{ display: "grid", alignContent: "space-between", gap: 24 * u }}>
+            {header}
+            {scoreRow(A, r.away, r.away_score, r.away_periods)}
+            {scoreRow(H, r.home, r.home_score, r.home_periods)}
+            {meta}
+            {leaders}
+          </div>
+          <div style={{ display: "grid", alignContent: "space-between", gap: 24 * u }}>
+            {flow}
+            {gaps}
+          </div>
+        </div>
+      </Frame>
+    );
+  }
+  return (
+    <Frame size={size} handle={handle} bands={[A, H]} stamp={stamp}>
+      <div style={{ position: "absolute", inset: `${56 * u}px ${pad}px ${32 * u}px`, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 22 * u }}>
+        {header}
+        <div style={{ display: "grid", gap: 18 * u }}>
+          {scoreRow(A, r.away, r.away_score, r.away_periods)}
+          {scoreRow(H, r.home, r.home_score, r.home_periods)}
+        </div>
+        {flow}
+        {gaps}
+        {story ? meta : null}
+        {leaders}
+      </div>
+    </Frame>
+  );
+}

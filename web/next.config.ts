@@ -10,6 +10,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   serverExternalPackages: ["postgres"],
+  devIndicators: false,
 };
 
 export default nextConfig;
