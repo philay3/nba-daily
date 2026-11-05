@@ -1,5 +1,5 @@
 """One pipeline run: sources -> compute -> inputs (odds, injuries, editorial, seeds) -> checks -> shots ->
-play-by-play -> load."""
+play-by-play -> power ratings and the game model -> load."""
 from __future__ import annotations
 
 import datetime as dt
@@ -14,6 +14,7 @@ from nba_pipeline.config import FIXTURES_DIR, season_for
 from nba_pipeline.digest import render_digest
 from nba_pipeline.editorial import EditorialProvider, FileEditorial, NoopEditorial, editorial_rows
 from nba_pipeline.export import dashboard_files, tables_from_build
+from nba_pipeline.model import ModelBuild, build_model, check_model, read_lines
 from nba_pipeline.pbp import PbpBuild, compute_pbp, pbp_checks, read_plays
 from nba_pipeline.previews import check_previews, preview_rows, upcoming_games
 from nba_pipeline.shots import ShotBuild, build_shots
@@ -44,6 +45,7 @@ class RunResult:
     warnings: list = field(default_factory=list)
     run_id: int | None = None
     pbp: PbpBuild | None = None
+    model: ModelBuild | None = None
 
     def summary(self) -> dict:
         meta = self.build.meta if self.build else {}
@@ -55,6 +57,7 @@ class RunResult:
                     tonight=meta.get("tonight"), last_night_games=meta.get("last_night_games"),
                     last_night_missing=meta.get("last_night_missing"), missing_games=meta.get("missing_games"),
                     notes=meta.get("notes"), shots=self.shots.meta if self.shots else None, play_by_play=pbp,
+                    model=self.model.backtest[0] if self.model and self.model.backtest else None,
                     counts=self.counts, errors=self.errors, warnings=self.warnings)
 
 
@@ -186,7 +189,8 @@ def run_day(date: dt.date, season: int | None = None, source_dir: Path | None = 
             from nba_pipeline.load import finish_run, load_build
             with conn.transaction():
                 result.counts = load_build(conn, result.build, result.odds, result.injuries, result.editorial,
-                                           previews=result.previews, shots=result.shots, pbp=result.pbp)
+                                           previews=result.previews, shots=result.shots, pbp=result.pbp,
+                                           model=result.model)
             finish_run(conn, run_id, "error" if result.errors else "ok", result.counts, result.build.meta.get("notes"),
                        result.warnings, result.errors)
     except BaseException as e:
@@ -254,13 +258,29 @@ def _run(result: RunResult, date: dt.date, season: int, source_dir: Path | None,
         result.shots = ShotBuild(available=False, notes=[f"the shot file could not be read ({type(e).__name__}: {e}), "
                                                          "so the shot tables were left as they were"])
     result.warnings += [f"shots: {n}" for n in result.shots.notes]
-    play_by_play(result, build, season, source_dir)
+    path = pbp_path(season, source_dir)
+    play_by_play(result, build, path)
+    game_model(result, build, path)
 
 
-def play_by_play(result: RunResult, build: Build, season: int, source_dir: Path | None) -> None:
+def game_model(result: RunResult, build: Build, pbp_file: Path | None) -> None:
+    """Power ratings for every date so far, projections for the next 3 days, and the backtest against ESPN's pregame
+    line (read from the play-by-play file). Without that file the backtest has no line to compare."""
+    try:
+        lines = read_lines(pbp_file)
+    except Exception as e:  # noqa: BLE001
+        lines = {}
+        result.warnings.append(f"model: ESPN's pregame lines could not be read ({type(e).__name__}: {e})")
+    result.model = build_model(build, lines, result.odds)
+    build.meta["notes"] += result.model.notes
+    errs, warns = check_model(result.model, build)
+    result.errors += errs
+    result.warnings += warns
+
+
+def play_by_play(result: RunResult, build: Build, path: Path | None) -> None:
     """Game flow, runs, clutch, lineups and on/off from the season's play-by-play. A separate step: without the file
     the play-by-play tables keep their last run, and a failure here still lets the box scores load."""
-    path = pbp_path(season, source_dir)
     if path is None:
         build.meta["notes"].append("no play-by-play file for this season; the play-by-play tables were left as they were")
         return

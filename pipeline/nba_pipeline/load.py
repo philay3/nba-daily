@@ -8,6 +8,7 @@
 - Snapshots (odds, injuries, editorial, game_previews) replace that date's rows.
 - Games that left this season's schedule without being played are deleted (with their odds and previews).
 - Play-by-play tables (game flow, runs, lineups, on/off, clutch) are rebuilt for the season when the run has them.
+- Power ratings and the model's tables (daily ratings, predictions, backtest) are rebuilt for the season.
 Running the same day twice leaves the database unchanged.
 """
 from __future__ import annotations
@@ -31,6 +32,8 @@ NO_UPDATED_AT = {"game_gaps", "player_game_deltas", "pipeline_runs", "odds", "in
                  "game_flow", "game_runs", "lineup_games"}
 PBP_GAME_TABLES = ["game_flow", "game_runs", "lineup_games"]
 PBP_SEASON_TABLES = ["lineup_season", "player_on_off", "team_clutch", "player_clutch"]
+MODEL_TABLES = {"power_ratings": "ratings", "model_days": "days", "model_games": "games", "model_backtest": "backtest",
+                "model_calibration": "calibration"}
 
 
 def _q(name: str) -> str:
@@ -93,7 +96,7 @@ def load_shots(conn: psycopg.Connection, shots: ShotBuild | None, season: int) -
 
 def load_build(conn: psycopg.Connection, build: Build, odds: list[dict], injuries: list[dict],
                editorial: list[dict], previews: list[dict] | None = None, shots: ShotBuild | None = None,
-               pbp=None) -> dict[str, int]:
+               pbp=None, model=None) -> dict[str, int]:
     """Write everything for one run. The caller owns the transaction."""
     season, day = build.season, build.today.isoformat()
     counts: dict[str, int] = {}
@@ -148,6 +151,12 @@ def load_build(conn: psycopg.Connection, build: Build, odds: list[dict], injurie
         for table in PBP_SEASON_TABLES:
             conn.execute(f"DELETE FROM {_q(table)} WHERE season = %s", (season,))
             counts[table] = write_rows(conn, table, getattr(pbp, table))
+
+    # power ratings and the model: rebuilt for the season
+    if model is not None:
+        for table, attr in MODEL_TABLES.items():
+            conn.execute(f"DELETE FROM {_q(table)} WHERE season = %s", (season,))
+            counts[table] = write_rows(conn, table, getattr(model, attr))
     return counts
 
 
