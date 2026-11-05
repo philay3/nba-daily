@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { GameFlowChart, type FlowRun } from "@/components/charts/GameFlow";
 import { QuarterFlow } from "@/components/charts/QuarterFlow";
 import { BoxScore } from "@/components/game/BoxScore";
+import { ModelPanel } from "@/components/model/ModelPanel";
 import { coverageNote, ShotPanel, ZoneCompare } from "@/components/shots/ShotPanel";
 import { accentOf, Empty, NoDatabase, SectionHead, StatusBadge, TeamMark } from "@/components/ui/bits";
 import { DatabaseNotConfigured } from "@/db/client";
@@ -225,7 +226,7 @@ export default async function GamePage({ params, searchParams }: { params: Param
     throw e;
   }
   if (!data) notFound();
-  const { game: g, teams, away, home, box, gaps, note, odds, injuries, teamSeason, shots, zones, flow, runs } = data;
+  const { game: g, teams, away, home, box, gaps, note, odds, injuries, teamSeason, shots, zones, flow, runs, model, ratings } = data;
   const a = teams.get(g.away_code);
   const h = teams.get(g.home_code);
   const final = g.status === "STATUS_FINAL" && away && home;
@@ -278,6 +279,8 @@ export default async function GamePage({ params, searchParams }: { params: Param
           {note ? <p className="max-w-[72ch] text-[17px] leading-relaxed">{note}</p> : null}
         </div>
       </section>
+
+      {model && !final ? <ModelPanel m={model} teams={teams} ratings={ratings} odds={odds} /> : null}
 
       {final ? (
         <>
@@ -391,6 +394,8 @@ export default async function GamePage({ params, searchParams }: { params: Param
               </table>
             </div>
           </section>
+
+          {model ? <ModelPanel m={model} teams={teams} ratings={ratings} odds={odds} /> : null}
         </>
       ) : (
         <section className="grid gap-5">

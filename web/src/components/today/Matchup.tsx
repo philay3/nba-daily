@@ -4,6 +4,7 @@ import { accentOf, PmBar, StatusBadge, TeamMark } from "@/components/ui/bits";
 import type { Injury, MissingRow, PlayerSeason, Team, TeamSeason, TonightGame } from "@/lib/data";
 import { f1, isNum, longDate, ordinal, shortDay, signed, signedInt, tipTime } from "@/lib/format";
 import { edgeOf, MATCHUP_ROWS, STATUS_ORDER } from "@/lib/metrics";
+import { edgeText, lineText, winChances } from "@/lib/model";
 
 function restText(r: number | null) {
   if (r === null || r === undefined) return "first game";
@@ -70,6 +71,16 @@ function Comparison({ game, teams, teamSeason, missing }: { game: TonightGame; t
             <td className="r num">{isNum(game.odds?.home_wp) ? `${game.odds!.home_wp!.toFixed(1)}%` : "–"}</td>
             <td />
           </tr>
+          {game.model ? (
+            <tr>
+              <td className="sticky-col">
+                <Link href="/model">Model</Link> win chance
+              </td>
+              <td className="r num">{f1(winChances(game.model)?.away)}%</td>
+              <td className="r num">{f1(winChances(game.model)?.home)}%</td>
+              <td className="text-ink-2">{edgeText(game.model) ? `Against the line: ${edgeText(game.model)}` : ""}</td>
+            </tr>
+          ) : null}
           <tr>
             <td className="sticky-col">Scoring missing (PPG)</td>
             <td className="r num">{f1(missing.get(game.away_code)?.ppg)}</td>
@@ -316,6 +327,11 @@ export function Matchup({
             <span>{tipTime(game)} ET</span>
             <span>{game.tv}</span>
             <span>Line {game.odds?.line ?? "not posted"}</span>
+            {game.model ? (
+              <Link href={`/games/${game.id}#model`} className="text-ink-2">
+                Model {lineText(game.home_code, game.away_code, game.model.pred_margin)}
+              </Link>
+            ) : null}
             {game.odds?.total != null ? <span>Total {game.odds.total}</span> : null}
           </span>
         </div>

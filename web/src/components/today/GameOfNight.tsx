@@ -3,6 +3,7 @@ import Link from "next/link";
 import { accentOf, WinSplit } from "@/components/ui/bits";
 import type { MissingRow, Team, TeamSeason, TonightGame } from "@/lib/data";
 import { f1, ordinal, signed, tipTime } from "@/lib/format";
+import { lineText } from "@/lib/model";
 
 function Side({ team, code, ts, align }: { team?: Team; code: string; ts?: TeamSeason; align: "left" | "right" }) {
   const right = align === "right";
@@ -76,6 +77,11 @@ export function GameOfNight({
           ) : null}
           <div className="flex flex-wrap gap-2">
             <span className="chip num">Line {o?.line ?? "not posted"}</span>
+            {game.model ? (
+              <Link href={`/games/${game.id}#model`} className="chip num no-underline hover:text-ink">
+                Model {lineText(game.home_code, game.away_code, game.model.pred_margin)}
+              </Link>
+            ) : null}
             {o?.total != null ? <span className="chip num">Total {o.total}</span> : null}
             {noRest.length ? <span className="chip">Back-to-back: {noRest.join(", ")}</span> : null}
             {ma || mh ? (
