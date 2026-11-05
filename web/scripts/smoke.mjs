@@ -37,7 +37,7 @@ if (SHOTS) mkdirSync(shotDir, { recursive: true });
 mkdirSync(exportDir, { recursive: true });
 
 const SIZES = { feed: [1080, 1350], story: [1080, 1920], youtube: [1920, 1080] };
-const TEMPLATES = ["player", "matchup", "league", "recap", "shots", "flow", "model"];
+const TEMPLATES = ["player", "matchup", "league", "recap", "shots", "flow", "model", "story"];
 const TEAM = process.env.TEAM || "LAL";
 const addDaysIso = (iso, n) => {
   const [y, m, d] = iso.split("-").map(Number);
@@ -131,7 +131,7 @@ if (DATE) {
   await (await open("/games/401909933", { shot: "model-game-ahead-1440.png", clip: "#model" })).close();
   await (await open("/games/401909903", { shot: "model-game-final-1440.png", clip: "#model" })).close();
 }
-for (const path of ["/teams", `/teams/${TEAM}`, "/teams/GSW", "/players", playerHref, "/standings", "/injuries", "/injuries?show=out", "/studio"]) {
+for (const path of ["/teams", `/teams/${TEAM}`, "/teams/GSW", "/players", playerHref, "/standings", "/injuries", "/injuries?show=out", "/studio", "/stories", "/stories?type=streak&scope=season", `/stories?team=${TEAM}`]) {
   if (!path) continue;
   await (await open(withDate(path), { shot: pageShots[path] })).close();
   await (await open(withDate(path), { width: 390, height: 844 })).close();
@@ -148,6 +148,26 @@ if (SHOTS) {
   await (await open(withDate("/studio"), { shot: "studio-1440.png", fullPage: false })).close();
   // the matchup preview for a game two days out
   if (DATE) await (await open(`/studio/frame?date=${DATE}&t=matchup&size=feed&game=401909933`, { width: 1080, height: 1350, checkScroll: false, fullPage: false, shot: "studio-matchup-ahead-feed.png" })).close();
+}
+
+// stories: each card links to its game and its player or team, and filters narrow the list
+{
+  const page = await open(withDate("/stories"), { shot: "stories-1440.png" });
+  const cards = await page.locator("article").count();
+  if (!cards) failures.push("/stories: no story cards");
+  else if ((await page.locator('article a[href^="/games/"]').count()) !== cards) failures.push("/stories: a card has no game link");
+  const studio = await page.locator('article a[href^="/studio?"]').first().getAttribute("href");
+  await page.close();
+  await (await open(withDate("/stories"), { width: 390, height: 844, shot: "stories-390.png" })).close();
+  const firsts = await open(withDate("/stories?type=first&scope=season"));
+  const kinds = await firsts.locator("article").evaluateAll((els) => els.map((e) => e.textContent ?? ""));
+  if (!kinds.length || kinds.some((t) => !t.includes("First this season"))) failures.push("/stories?type=first: filter did not hold");
+  await firsts.close();
+  if (studio) {
+    const page2 = await open(studio, { checkScroll: false });
+    if (!(await page2.locator("[data-frame]").count())) failures.push(`${studio}: no story graphic`);
+    await page2.close();
+  }
 }
 
 // a missing game must 404, not crash
@@ -179,6 +199,7 @@ const exportPlan = [
   ["shots", "story"],
   ["flow", "youtube"],
   ["model", "feed"],
+  ["story", "story"],
 ];
 for (const [t, size] of exportPlan) {
   const page = await open(withDate(`/studio?t=${t}&size=${size}`), { checkScroll: false });

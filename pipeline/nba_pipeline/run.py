@@ -1,5 +1,5 @@
 """One pipeline run: sources -> compute -> inputs (odds, injuries, editorial, seeds) -> checks -> shots ->
-play-by-play -> power ratings and the game model -> load."""
+play-by-play -> power ratings and the game model -> stories -> load."""
 from __future__ import annotations
 
 import datetime as dt
@@ -18,6 +18,7 @@ from nba_pipeline.model import ModelBuild, build_model, check_model, read_lines
 from nba_pipeline.pbp import PbpBuild, compute_pbp, pbp_checks, read_plays
 from nba_pipeline.previews import check_previews, preview_rows, upcoming_games
 from nba_pipeline.shots import ShotBuild, build_shots
+from nba_pipeline.stories import StoryBuild, build_stories, story_checks
 from nba_pipeline.sources import http_client
 from nba_pipeline.sources.espn import fetch_injuries, fetch_summary, odds_from_summary, parse_injuries
 from nba_pipeline.sources.hoopr import pbp_path, read_season, read_shots, season_paths, shots_path
@@ -46,6 +47,7 @@ class RunResult:
     run_id: int | None = None
     pbp: PbpBuild | None = None
     model: ModelBuild | None = None
+    stories: StoryBuild | None = None
 
     def summary(self) -> dict:
         meta = self.build.meta if self.build else {}
@@ -58,6 +60,8 @@ class RunResult:
                     last_night_missing=meta.get("last_night_missing"), missing_games=meta.get("missing_games"),
                     notes=meta.get("notes"), shots=self.shots.meta if self.shots else None, play_by_play=pbp,
                     model=self.model.backtest[0] if self.model and self.model.backtest else None,
+                    stories=dict(nights=self.stories.nights, found=self.stories.candidates,
+                                 kept=len(self.stories.stories)) if self.stories else None,
                     counts=self.counts, errors=self.errors, warnings=self.warnings)
 
 
@@ -190,7 +194,7 @@ def run_day(date: dt.date, season: int | None = None, source_dir: Path | None = 
             with conn.transaction():
                 result.counts = load_build(conn, result.build, result.odds, result.injuries, result.editorial,
                                            previews=result.previews, shots=result.shots, pbp=result.pbp,
-                                           model=result.model)
+                                           model=result.model, stories=result.stories)
             finish_run(conn, run_id, "error" if result.errors else "ok", result.counts, result.build.meta.get("notes"),
                        result.warnings, result.errors)
     except BaseException as e:
@@ -261,6 +265,20 @@ def _run(result: RunResult, date: dt.date, season: int, source_dir: Path | None,
     path = pbp_path(season, source_dir)
     play_by_play(result, build, path)
     game_model(result, build, path)
+    find_stories(result, build)
+
+
+def find_stories(result: RunResult, build: Build) -> None:
+    """Ranked story ideas for every night of the season. A failure is recorded and the box scores still load."""
+    try:
+        result.stories = build_stories(build)
+    except Exception as e:  # noqa: BLE001
+        traceback.print_exc(file=sys.stderr)
+        result.errors.append(f"stories: the step failed: {type(e).__name__}: {e}")
+        return
+    errs, warns = story_checks(result.stories, build)
+    result.errors += errs
+    result.warnings += warns
 
 
 def game_model(result: RunResult, build: Build, pbp_file: Path | None) -> None:

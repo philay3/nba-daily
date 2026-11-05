@@ -221,6 +221,31 @@ Short entries: the decision, why, and the trade-off. Newest at the bottom of eac
 ### The studio handle comes from `NEXT_PUBLIC_BRAND_HANDLE`
 - Why: set it once in `.env` or on Vercel; each graphic can still override it, and the URL keeps the current choice. No browser storage needed.
 
+## Story finder
+
+### Stories are rebuilt for every night, every run
+- Why: any night can be browsed, a late box-score fix flows into old stories, and the no-look-ahead rule is easy to test (a run as of an earlier date gives the same stories for the nights it covers). It takes under a second and about 20 rows a night (3,400 a season).
+- Trade-off: a story can change after the fact when ESPN corrects a box score.
+
+### Rarity is a z-score for every kind
+- Why: outliers come with a z; streaks, firsts and rare lines come with a probability, turned into the z with the same tail. One scale lets one ranking mix them. Prominence (minutes and usage) scales it by 0.5 to 1.5, so a role player's career night can still beat a star's ordinary big game, but not by much.
+- Trade-off: the probabilities are simple models (a streak treats games as independent; league rates early in a season rest on a few hundred games). The numbers behind each score are stored, and the card shows them.
+
+### The spread behind an outlier has a floor
+- Why: early in a season a player's spread over 4 or 5 games can be tiny, and a sample standard deviation of 1 point makes a 6-point swing look like a 6-sigma night. The floors (points 4, rebounds 2, assists 1.5, threes 1, plus-minus 6, true shooting 8) are about a third to half of a typical rotation player's full-season spread.
+- Trade-off: a very steady player's real outliers are understated until his own spread passes the floor.
+
+### One story per player per night
+- Why: a 45-point, 15-rebound, 8-three night set off five stories that crowded out the rest of the slate. The best one leads and the others show as "Also that night".
+- Trade-off: the second story of a big night cannot rank on its own.
+
+### Team swings compare the last stretch with the games before it
+- Why: comparing the last 10 with a season that includes them waters the gap down. Early on the window is half the team's games, so a turnaround shows by the 6th game.
+- Trade-off: before 20 games the window is short and noisy, so the bar (z of 2) is rarely reached; none of the fixture day's swings make it.
+
+### The studio's Story card covers last night
+- Why: like the other templates, the studio loads one date. Every story card on the Stories page links to the studio with the next morning's date, so any story of the season can become a graphic.
+
 ## Versions and environment notes
 
 ### Next.js 16.4, React 19.3, TypeScript 5.9, ESLint 9

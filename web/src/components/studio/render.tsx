@@ -1,4 +1,4 @@
-import { GameFlowCard, GameRecap, LeagueChart, MatchupCard, ModelCard, PlayerCard, ShotChartCard } from "@/components/studio/templates";
+import { GameFlowCard, GameRecap, LeagueChart, MatchupCard, ModelCard, PlayerCard, ShotChartCard, StoryGraphic } from "@/components/studio/templates";
 import type { StudioData, StudioSelection } from "@/lib/studio-types";
 
 /** Default highlight for the league chart: tonight's top game, else the two best net ratings. */
@@ -19,6 +19,7 @@ export function resolveSelection(data: StudioData, sel: StudioSelection): Studio
     shot: data.shotCharts.find((c) => c.key === sel.shot)?.key ?? data.shotCharts[0]?.key,
     flow: data.flows.find((f) => f.code === sel.flow)?.code ?? data.flows[0]?.code,
     model: (data.models.find((m) => m.key === sel.model) ?? data.models.find((m) => m.code === sel.model) ?? data.models[0])?.key,
+    story: data.stories.find((x) => x.key === sel.story)?.key ?? data.stories[0]?.key,
     highlight: sel.highlight?.length ? sel.highlight : defaultHighlight(data),
   };
 }
@@ -31,6 +32,7 @@ export function emptyReason(data: StudioData, template: StudioSelection["templat
   if (template === "shots" && !data.shotCharts.length) return "No shots from last night for this date.";
   if (template === "flow" && !data.flows.length) return "No play-by-play from last night for this date.";
   if (template === "model" && !data.models.length) return "No model lines for last night or the next 3 days.";
+  if (template === "story" && !data.stories.length) return "No stories from last night for this date.";
   return null;
 }
 
@@ -56,6 +58,10 @@ export function TemplateFrame({ data, sel }: { data: StudioData; sel: StudioSele
     const f = data.flows.find((x) => x.code === s.flow);
     return f ? <GameFlowCard f={f} teams={data.teams} size={s.size} handle={s.handle} /> : null;
   }
+  if (s.template === "story") {
+    const st = data.stories.find((x) => x.key === s.story);
+    return st ? <StoryGraphic s={st} teams={data.teams} size={s.size} handle={s.handle} /> : null;
+  }
   if (s.template === "model") {
     const m = data.models.find((x) => x.key === s.model);
     return m ? <ModelCard m={m} teams={data.teams} size={s.size} handle={s.handle} /> : null;
@@ -73,6 +79,7 @@ export function selectionToQuery(day: string, s: StudioSelection): string {
   if (s.template === "shots" && s.shot) q.set("shot", s.shot);
   if (s.template === "flow" && s.flow) q.set("game", s.flow);
   if (s.template === "model" && s.model) q.set("game", s.model);
+  if (s.template === "story" && s.story) q.set("story", s.story);
   if (s.template === "league" && s.highlight?.length) q.set("teams", s.highlight.join(","));
   return q.toString();
 }

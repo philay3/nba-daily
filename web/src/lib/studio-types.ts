@@ -1,5 +1,6 @@
 /** Plain JSON shapes for the studio (passed from server to the client editor). */
 import type { ScatterTeam } from "@/components/charts/OffDefScatter";
+import type { StoryChart } from "@/lib/stories";
 
 export type StudioTeam = {
   code: string;
@@ -209,6 +210,24 @@ export type StudioModel = {
   season: { games: number; line_games: number; model_mae: number | null; line_mae: number | null; ats_w: number; ats_l: number; ats_p: number } | null;
 };
 
+/** One story idea from last night, with the numbers and the chart behind it. */
+export type StudioStory = {
+  key: string; // "<night>-<rank>"
+  rank: number;
+  date: string; // the game night
+  kind: string;
+  kind_label: string;
+  headline: string;
+  detail: string;
+  name: string; // player name, or the team's full name
+  team: string;
+  opp: string;
+  figures: [string, string][];
+  chart: StoryChart | null;
+  also: string[];
+  key_figure: string;
+};
+
 export type StudioData = {
   day: string;
   yday: string;
@@ -221,6 +240,7 @@ export type StudioData = {
   league: ScatterTeam[];
   shotCharts: StudioShotChart[];
   models: StudioModel[];
+  stories: StudioStory[];
 };
 
 export const SIZES = {
@@ -239,6 +259,7 @@ export const TEMPLATES = {
   shots: "Shot chart",
   flow: "Game flow",
   model: "Model vs Vegas",
+  story: "Story card",
 } as const;
 
 export type TemplateKey = keyof typeof TEMPLATES;
@@ -253,5 +274,6 @@ export type StudioSelection = {
   shot?: string; // StudioShotChart.key
   flow?: string; // game code
   model?: string; // game id
+  story?: string; // StudioStory.key
   highlight?: string[]; // team codes
 };

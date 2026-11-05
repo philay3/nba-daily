@@ -5,6 +5,7 @@ import { and, asc, desc, eq, gte, inArray, lt, lte, max, ne, sql } from "drizzle
 import { getDb } from "@/db/client";
 import * as t from "@/db/schema";
 import { MISSING_STATUSES } from "@/lib/metrics";
+import type { StoryFilters } from "@/lib/stories";
 import { addDays, daysBetween, isIsoDate, todayET } from "@/lib/format";
 
 export type Team = typeof t.teams.$inferSelect;
@@ -36,6 +37,7 @@ export type ModelDay = typeof t.model_days.$inferSelect;
 export type ModelGame = typeof t.model_games.$inferSelect;
 export type ModelBacktest = typeof t.model_backtest.$inferSelect;
 export type ModelCalibration = typeof t.model_calibration.$inferSelect;
+export type Story = typeof t.stories.$inferSelect;
 
 export type BoxLine = PlayerGame & { delta: Delta | null };
 
@@ -696,4 +698,91 @@ export async function previousGameDay(day: string): Promise<string | null> {
     .from(t.games)
     .where(and(lt(t.games.game_date, day), eq(t.games.status, "STATUS_FINAL")));
   return row?.d ?? null;
+}
+
+/* ------------------------------------------------------------------ stories */
+
+export type StoryLogRow = { player_id: number; game_id: number; game_date: string; opp_code: string; home_away: string; pts: number | null; reb: number | null; ast: number | null; tpm: number | null; plus_minus: number | null; ts_pct: number | null; fga: number | null; fta: number | null };
+
+/** Game nights that have stories this season, newest first. */
+export async function storyNights(season: number): Promise<string[]> {
+  const rows = await getDb().selectDistinct({ d: t.stories.story_date }).from(t.stories).where(eq(t.stories.season, season)).orderBy(desc(t.stories.story_date));
+  return rows.map((r) => r.d);
+}
+
+/** Played games of these players this season up to a date, for the charts behind each story. */
+export async function storyLogs(season: number, ids: number[], through: string): Promise<Map<number, StoryLogRow[]>> {
+  if (!ids.length) return new Map();
+  const rows = await getDb()
+    .select({
+      player_id: t.player_games.player_id,
+      game_id: t.player_games.game_id,
+      game_date: t.player_games.game_date,
+      opp_code: t.player_games.opp_code,
+      home_away: t.player_games.home_away,
+      pts: t.player_games.pts,
+      reb: t.player_games.reb,
+      ast: t.player_games.ast,
+      tpm: t.player_games.tpm,
+      plus_minus: t.player_games.plus_minus,
+      ts_pct: t.player_games.ts_pct,
+      fga: t.player_games.fga,
+      fta: t.player_games.fta,
+    })
+    .from(t.player_games)
+    .innerJoin(t.games, eq(t.games.id, t.player_games.game_id))
+    .where(
+      and(
+        inArray(t.player_games.player_id, ids),
+        eq(t.games.season, season),
+        lte(t.player_games.game_date, through),
+        eq(t.player_games.did_not_play, false),
+        sql`${t.player_games.min} > 0`,
+      ),
+    )
+    .orderBy(asc(t.player_games.game_date), asc(t.player_games.game_id));
+  const out = new Map<number, StoryLogRow[]>();
+  for (const r of rows) {
+    const list = out.get(r.player_id) ?? [];
+    list.push(r);
+    out.set(r.player_id, list);
+  }
+  return out;
+}
+
+/**
+ * The Stories page: one night's top 20 (the newest night before `day`), or the whole season when filtered by
+ * player or team, with the filters' choices and each player's games for the evidence charts.
+ */
+export async function getStoriesPage(day: string, f: StoryFilters) {
+  const season = await seasonFor(day);
+  const teams = await getTeams();
+  if (!season) return { season, teams, nights: [] as string[], night: null, stories: [] as Story[], players: [] as PlayerName[], names: new Map<number, PlayerName>(), logs: new Map<number, StoryLogRow[]>() };
+  const db = getDb();
+  const nights = await storyNights(season);
+  const night = nights.find((d) => d < day) ?? null;
+  const where = [eq(t.stories.season, season)];
+  if (f.scope === "night") where.push(night ? eq(t.stories.story_date, night) : sql`false`);
+  else where.push(lt(t.stories.story_date, day));
+  if (f.kind) where.push(eq(t.stories.kind, f.kind));
+  if (f.team) where.push(eq(t.stories.team_code, f.team));
+  if (f.player !== null) where.push(eq(t.stories.player_id, f.player));
+  const [stories, pickable] = await Promise.all([
+    db
+      .select()
+      .from(t.stories)
+      .where(and(...where))
+      .orderBy(desc(t.stories.story_date), asc(t.stories.rank))
+      .limit(f.scope === "night" ? 20 : 200),
+    db
+      .selectDistinct({ id: t.players.id, name: t.players.name, short_name: t.players.short_name })
+      .from(t.stories)
+      .innerJoin(t.players, eq(t.players.id, t.stories.player_id))
+      .where(and(eq(t.stories.season, season), lt(t.stories.story_date, day))),
+  ]);
+  const ids = [...new Set(stories.map((s) => s.player_id).filter((x): x is number => x !== null))];
+  const through = stories.reduce((m, s) => (s.story_date > m ? s.story_date : m), "");
+  const logs = await storyLogs(season, ids, through || day);
+  const players = [...pickable].sort((a, b) => a.name.localeCompare(b.name));
+  return { season, teams, nights, night, stories, players, names: new Map(players.map((p) => [p.id, p])), logs };
 }

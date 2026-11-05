@@ -205,7 +205,7 @@ export default async function PlayerPage({ params, searchParams }: { params: Par
       ) : null}
 
       {games.length ? (
-        <section className="grid gap-5 lg:grid-cols-2">
+        <section id="trend" className="grid scroll-mt-20 gap-5 lg:grid-cols-2">
           <div>
             <SectionHead title="Points by game">The line is his season average.</SectionHead>
             <div className="panel p-4 sm:p-5">

@@ -224,6 +224,36 @@ Calibration over 2025-26: favorites given 50-60% won 58.8% (488 games), 60-70% w
 
 Each run checks that every finished game has a prediction and that no prediction used a game on or after its own date (errors, starting with "model:").
 
+## Story finder
+
+`pipeline/nba_pipeline/stories.py` turns the box scores into ranked story ideas. Every run rebuilds them for every game night of the season, so the Stories page can show any night, and a night's stories are the same whether the run is the next morning or weeks later (a test runs the fixture as of 2026-10-28 and compares).
+
+| Table | One row per | What it holds |
+| --- | --- | --- |
+| `stories` | night, rank | The top 20 of the night: kind, headline, plain-words detail, the night's number, the baseline and spread it was compared with, z, sample size, rarity, prominence, score, and `evidence` (JSON with every number behind it: the line, season and last-10 baselines, streak games, league counts, the team's games) |
+| `player_baselines` | season, player, stat | Season and last-10 mean and standard deviation for points, rebounds, assists, threes, plus-minus and true shooting, from every game before the run date |
+
+### Kinds
+
+- Outlier: points, rebounds, assists, threes, plus-minus or true shooting at least 2 standard deviations from his own average before that night, with 4 or more games before it. The spread is the sample standard deviation, raised to a floor (points 4, rebounds 2, assists 1.5, threes 1, plus-minus 6, true shooting 8 points) so that 4 similar games do not turn an ordinary night into an outlier. A high outlier must also be a big number on its own (20 points, 10 rebounds, 8 assists, 4 threes, +15, or 70% true shooting on 15 points). A low one is kept only for a cold night that matters: under his scoring average when he averages 15 and played 20 minutes, under 40% true shooting on 12 attempts, or -20. True shooting counts games with 5 or more shooting attempts (FGA + 0.44 FTA), and the night needs 10.
+- Streak: 20-point games, double-doubles, or games with 3 or more threes, in a row, at least 3 long and alive after that night. Only games he played count; a game he missed does not end a streak. Its probability is his rate to the power of the length, his rate shrunk toward the league's: (his games with it + 5 x league rate) / (his games + 5).
+- First this season: the first 20, 30 or 40-point game, double-double, triple-double, 10-rebound, 10-assist or 5-three game of his season, after at least 3 games without one. Only the highest of a family is claimed (a first 30-point game is not also called a first 20-point game). Rarity is how far the threshold sat above his own average, in standard deviations; for double- and triple-doubles, his shrunk rate as above.
+- Rare line: 30-10-10, 20-20, 40 points, a triple-double, or 8 threes. Its probability is how often the league did it in the season's player games before that night: (count + 1) / (games + 2).
+- Team swing: a team's net rating over its last 10 games (half its games, until it has 20) against the games before, after every night it played from its 6th game on. z is the gap over the league's spread of single-game net ratings, times the square root of 1/last + 1/before. Kept at 2 or more. None reach it on the fixture day (the largest is 1.9, Golden State after winning 3 straight).
+
+### Ranking
+
+- Rarity is a z-score: the outlier's z, or for a probability p the z with the same tail (p = 0.023 is 2.0). Capped at 5.
+- Prominence, 0 to 1, from games through that night: half minutes per game (36 is full), half usage (30% is full). Usage is the share of his team's plays (FGA + 0.44 FTA + TOV) he used while on the floor.
+- Score = rarity x (0.5 + prominence). Team swings use prominence 0.75.
+- Each player or team gets one story per night: the best one. The others ride along in `evidence.also` and show as "Also that night".
+
+### Checks
+
+- Every run re-checks each "first this season" claim against the box scores: the night has it, and no earlier game does. A failure is an error in `pipeline_runs` (messages start with "stories:").
+- In the tests: z-score math on synthetic data against numpy; each rule on small synthetic seasons; every "first" on the fixture day checked against hoopR's raw player box file; season point baselines equal the engine's points per game; every counting-stat outlier rebuilt in SQL with `avg` and `stddev_samp` (also run on the live mirror for 2026-11-05: 81 of 81 agree).
+- Fixture day: 13 nights, 421 stories found, 154 kept (fewer than 20 on the first nights, when few players have 4 games).
+
 ## Injury status rules
 
 Each row gets one of Out, Doubtful, Questionable, Probable, Day-to-day. A game-day designation in the latest comment wins when it is about tonight ("questionable for Monday's game" on a Monday means Questionable); otherwise ESPN's status (Day-To-Day becomes Day-to-day). Suspended players are Out with injury "Suspension". The note is written from ESPN's structured fields (injury detail and expected return), never copied from ESPN's comment text.

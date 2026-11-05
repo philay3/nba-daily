@@ -1,6 +1,6 @@
 import { SIZES, TEMPLATES, type SizeKey, type StudioSelection, type TemplateKey } from "@/lib/studio-types";
 
-export type StudioSearch = { date?: string; t?: string; size?: string; player?: string; game?: string; teams?: string; handle?: string; shot?: string };
+export type StudioSearch = { date?: string; t?: string; size?: string; player?: string; game?: string; teams?: string; handle?: string; shot?: string; story?: string };
 
 export const DEFAULT_HANDLE = process.env.NEXT_PUBLIC_BRAND_HANDLE || "@nbadaily";
 
@@ -18,6 +18,7 @@ export function selectionFromSearch(sp: StudioSearch): StudioSelection {
     shot: template === "shots" ? sp.shot : undefined,
     flow: template === "flow" ? sp.game : undefined,
     model: template === "model" ? sp.game : undefined,
+    story: template === "story" ? sp.story : undefined,
     highlight: sp.teams ? sp.teams.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean).slice(0, 2) : undefined,
   };
 }
