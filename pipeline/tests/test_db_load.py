@@ -238,6 +238,27 @@ def test_stories_point_at_real_lines(conn):
     assert bad == []
 
 
+def test_outlier_z_scores_rebuild_in_sql(conn):
+    """Every counting-stat outlier: games, mean, spread and z rebuilt with SQL's own avg and stddev_samp."""
+    rows = conn.execute("""
+        WITH s AS (SELECT * FROM stories WHERE kind = 'outlier' AND evidence->>'stat' IN ('pts','reb','ast','tpm','plus_minus')),
+        b AS (
+          SELECT s.story_id, s.value, s.baseline, s.sd, s.z, s.games, (s.evidence->>'floor')::float AS fl,
+                 count(pg.*) AS n, avg(v.x) AS m, stddev_samp(v.x) AS sd2
+          FROM s JOIN player_games pg ON pg.player_id = s.player_id AND pg.game_date < s.story_date
+               AND NOT pg.did_not_play AND pg.min > 0
+          CROSS JOIN LATERAL (SELECT CASE s.evidence->>'stat' WHEN 'pts' THEN pg.pts WHEN 'reb' THEN pg.reb
+               WHEN 'ast' THEN pg.ast WHEN 'tpm' THEN pg.tpm ELSE pg.plus_minus END AS x) v
+          GROUP BY 1, 2, 3, 4, 5, 6, 7)
+        SELECT * FROM b""").fetchall()
+    assert len(rows) >= 30
+    for r in rows:
+        assert r["n"] == r["games"], r["story_id"]
+        assert abs(float(r["m"]) - r["baseline"]) <= 0.051, r["story_id"]
+        assert abs(round(float(r["sd2"]), 1) - r["sd"]) <= 0.051, r["story_id"]
+        assert abs((r["value"] - float(r["m"])) / max(float(r["sd2"]), r["fl"]) - r["z"]) <= 0.006, r["story_id"]
+
+
 def test_stories_are_ranked_by_score(conn):
     rows = conn.execute("SELECT story_date, rank, score FROM stories ORDER BY story_date, rank").fetchall()
     by_night = {}
