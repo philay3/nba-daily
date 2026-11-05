@@ -75,11 +75,11 @@ export function NetBars({ rows, width = 640, rowH = 22, font = 12 }: { rows: Net
   );
 }
 
-export type ColumnPoint = { key: string; label: string; value: number | null; title: string };
+export type ColumnPoint = { key: string; label: string; value: number | null; title: string; strong?: boolean };
 
 /**
  * One column per game. `diverging` colors by sign (plus-minus); otherwise one series color.
- * `avg` draws a reference line with its label.
+ * `avg` draws a reference line with its label. When any point is `strong`, the others are drawn faded.
  */
 export function Columns({
   points,
@@ -111,6 +111,7 @@ export function Columns({
   const bw = Math.min(24, xb.bandwidth());
   const ticks = y.ticks(4);
   const every = Math.max(1, Math.ceil(points.length / Math.floor((width - m.left) / (font * 4.2))));
+  const focus = points.some((p) => p.strong);
   return (
     <svg viewBox={`0 0 ${width} ${height}`} width="100%" role="img" aria-label={avgLabel ?? "Game by game"} style={{ display: "block" }}>
       {ticks.map((v) => (
@@ -127,13 +128,13 @@ export function Columns({
         return (
           <g key={p.key}>
             {v !== null ? (
-              <path d={vbar(y(0), y(v), cx, bw)} fill={diverging ? (v >= 0 ? CHART.plus : CHART.minus) : color} />
+              <path d={vbar(y(0), y(v), cx, bw)} fill={diverging ? (v >= 0 ? CHART.plus : CHART.minus) : color} fillOpacity={focus && !p.strong ? 0.4 : 1} />
             ) : null}
             <rect x={xb(p.key) ?? 0} y={m.top} width={xb.step()} height={height - m.top - m.bottom} fill="transparent">
               <title>{p.title}</title>
             </rect>
-            {i % every === 0 ? (
-              <text x={cx + bw / 2} y={height - font * 0.6} textAnchor="middle" fontSize={font} fill={CHART.muted}>
+            {i % every === 0 || p.strong ? (
+              <text x={cx + bw / 2} y={height - font * 0.6} textAnchor="middle" fontSize={font} fill={p.strong ? CHART.ink : CHART.muted} fontWeight={p.strong ? 600 : undefined}>
                 {p.label}
               </text>
             ) : null}
