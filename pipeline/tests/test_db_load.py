@@ -17,7 +17,8 @@ EXPECTED_COUNTS = {
     "player_season": 442, "game_gaps": 2300, "player_game_deltas": 2072, "odds": 15, "injuries": 100, "editorial": 28,
     "game_previews": 29, "shots": 16255, "shot_games": 92, "league_shot_zones": 7, "team_shot_zones": 420,
     "player_shot_zones": 2996, "game_shot_zones": 1288, "game_flow": 92, "game_runs": 352, "lineup_games": 3429,
-    "lineup_season": 2356, "player_on_off": 442, "team_clutch": 30, "player_clutch": 258,
+    "lineup_season": 2356, "player_on_off": 442, "team_clutch": 30, "player_clutch": 258, "power_ratings": 390,
+    "model_days": 13, "model_games": 121, "model_backtest": 1, "model_calibration": 5,
 }
 
 
@@ -145,6 +146,25 @@ def test_previews_cover_the_next_three_days(conn):
                          "GROUP BY game_date ORDER BY game_date").fetchall()
     assert rows == sched
     assert [(str(r["game_date"]), r["n"]) for r in rows] == [("2026-11-02", 15), ("2026-11-04", 14)]
+
+
+def test_model_tables(conn):
+    """Every final has a prediction made before its date; the look-ahead's games have one too, with tonight's line."""
+    bad = conn.execute("SELECT g.id FROM games g LEFT JOIN model_games m ON m.game_id = g.id "
+                       "WHERE g.status = 'STATUS_FINAL' AND g.game_date < '2026-11-02' AND m.game_id IS NULL").fetchall()
+    assert bad == []
+    assert one(conn, "SELECT count(*) AS n FROM model_games WHERE as_of > game_date")["n"] == 0
+    assert one(conn, "SELECT count(*) AS n FROM model_games m JOIN game_previews p ON p.game_id = m.game_id "
+                     "AND p.snapshot_date = '2026-11-02' AND m.actual_margin IS NULL")["n"] == 29
+    # tonight's lines come from the golden odds.json
+    assert one(conn, "SELECT count(*) AS n FROM model_games WHERE line_source = 'odds'")["n"] == 15
+    per_day = conn.execute("SELECT as_of, count(*) AS n FROM power_ratings GROUP BY as_of").fetchall()
+    assert per_day and all(r["n"] == 30 for r in per_day)
+    days = one(conn, "SELECT count(*) AS n FROM model_days")["n"]
+    assert days == len(per_day)
+    bt = one(conn, "SELECT * FROM model_backtest WHERE season = 2027")
+    assert bt["games"] == 92 and bt["line_games"] == 92
+    assert one(conn, "SELECT sum(games) AS n FROM model_calibration WHERE season = 2027")["n"] == 92
 
 
 def test_shots_match_box_scores(conn):
