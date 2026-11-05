@@ -5,11 +5,12 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import * as t from "@/db/schema";
 import { teamAccent } from "@/lib/colors";
-import { dayMode, getModelGames, getToday, played, type TodayData } from "@/lib/data";
+import { dayMode, getModelGames, getToday, played, storyLogs, type TodayData } from "@/lib/data";
 import { periodLabel } from "@/lib/flow";
 import { addDays, tipTime } from "@/lib/format";
 import { fgPct, ZONES, zoneCounts } from "@/lib/shots";
-import type { ModelSide, StudioData, StudioFlow, StudioMatchup, StudioModel, StudioPlayerLine, StudioRecap, StudioShotChart, StudioTeam } from "@/lib/studio-types";
+import { evidenceOf, keyFigure, STORY_KINDS, storyChart, storyFigures, storyKey, type StoryKind } from "@/lib/stories";
+import type { ModelSide, StudioData, StudioFlow, StudioMatchup, StudioModel, StudioPlayerLine, StudioRecap, StudioShotChart, StudioStory, StudioTeam } from "@/lib/studio-types";
 
 /** Everything the studio templates need for one date, as plain JSON. */
 export async function getStudioData(day: string): Promise<StudioData> {
@@ -204,8 +205,39 @@ export async function getStudioData(day: string): Promise<StudioData> {
   const shotCharts = await getShotCharts(d.lastNight.map((g) => g.id), d.season, lines, d.results);
 
   const models = await getStudioModels(d, days);
+  const stories = await getStudioStories(d.yday, d.season, teams);
 
-  return { day, yday: addDays(day, -1), season: d.season, teams, players, matchups, recaps, flows, league, shotCharts, models };
+  return { day, yday: addDays(day, -1), season: d.season, teams, players, matchups, recaps, flows, league, shotCharts, models, stories };
+}
+
+/** Last night's ranked stories, each with its figures and evidence chart. */
+async function getStudioStories(night: string, season: number | null, teams: Record<string, StudioTeam>): Promise<StudioStory[]> {
+  if (!season) return [];
+  const db = getDb();
+  const rows = await db
+    .select({ s: t.stories, name: t.players.name })
+    .from(t.stories)
+    .leftJoin(t.players, eq(t.players.id, t.stories.player_id))
+    .where(and(eq(t.stories.season, season), eq(t.stories.story_date, night)))
+    .orderBy(asc(t.stories.rank));
+  const ids = [...new Set(rows.map((r) => r.s.player_id).filter((x): x is number => x !== null))];
+  const logs = await storyLogs(season, ids, night);
+  return rows.map(({ s, name }) => ({
+    key: storyKey(s),
+    rank: s.rank,
+    date: s.story_date,
+    kind: s.kind,
+    kind_label: STORY_KINDS[(s.kind in STORY_KINDS ? s.kind : "outlier") as StoryKind],
+    headline: s.headline,
+    detail: s.detail,
+    name: name ?? teams[s.team_code]?.name ?? s.team_code,
+    team: s.team_code,
+    opp: s.opp_code,
+    figures: storyFigures(s),
+    chart: storyChart(s, s.player_id !== null ? (logs.get(s.player_id) ?? []) : []),
+    also: (evidenceOf(s).also ?? []).map((a) => a.headline),
+    key_figure: keyFigure(s),
+  }));
 }
 
 /** Model vs ESPN cards: the games of the next 3 days first, then last night's with their results. */

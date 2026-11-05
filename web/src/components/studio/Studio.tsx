@@ -194,6 +194,18 @@ export function Studio({ data, initial }: { data: StudioData; initial: StudioSel
             </select>
           </label>
         ) : null}
+        {sel.template === "story" && data.stories.length ? (
+          <label className="grid gap-1.5 text-[13px] font-semibold text-ink-2">
+            Story (last night, best first)
+            <select className={field} value={sel.story} onChange={(e) => set({ story: e.target.value })}>
+              {data.stories.map((s) => (
+                <option key={s.key} value={s.key}>
+                  #{s.rank} {s.headline}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         {sel.template === "league" ? (
           <div className="grid grid-cols-2 gap-2">
             {[0, 1].map((i) => (

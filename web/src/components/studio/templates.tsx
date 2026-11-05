@@ -12,7 +12,8 @@ import { duration } from "@/lib/flow";
 import { f1, longDate, monthDay, ordinal, signed } from "@/lib/format";
 import { COURT, ZONE_LABEL, type ZoneKey } from "@/lib/shots";
 import { atsWord, edgeText, lineText, winChances } from "@/lib/model";
-import type { ModelSide, SizeKey, StudioFlow, StudioMatchup, StudioModel, StudioPlayerLine, StudioRecap, StudioShotChart, StudioTeam } from "@/lib/studio-types";
+import { STAT_LABEL, statText } from "@/lib/stories";
+import type { ModelSide, SizeKey, StudioFlow, StudioMatchup, StudioModel, StudioPlayerLine, StudioRecap, StudioShotChart, StudioStory, StudioTeam } from "@/lib/studio-types";
 import { SIZES } from "@/lib/studio-types";
 
 const C = {
@@ -1176,6 +1177,116 @@ export function ModelCard({ m, teams, size, handle }: { m: StudioModel; teams: R
         {chance}
         {tape}
         {foot}
+      </div>
+    </Frame>
+  );
+}
+
+/* ------------------------------------------------------------------ 8. story card */
+
+export function StoryGraphic({ s, teams, size, handle }: { s: StudioStory; teams: Record<string, StudioTeam>; size: SizeKey; handle: string }) {
+  const { w, h } = SIZES[size];
+  const landscape = w > h;
+  const story = size === "story";
+  const u = landscape ? h / 1080 : w / 1080;
+  const pad = 72 * u;
+  const team = teams[s.team] ?? MISSING_TEAM;
+  const colW = landscape ? 820 * u : w - pad * 2;
+  const headSize = fit(s.headline, colW * (landscape ? 2.6 : story ? 3 : 2.4), (story ? 108 : landscape ? 96 : 92) * u, 0.42);
+
+  const header = (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 24 * u }}>
+      <Label u={u}>{s.kind_label}</Label>
+      <span style={{ fontSize: 26 * u, color: C.ink2 }}>
+        {longDate(s.date)}, story {s.rank} of the night
+      </span>
+    </div>
+  );
+  const head = (
+    <div style={{ display: "flex", alignItems: "stretch", gap: 24 * u }}>
+      <div style={{ width: 14 * u, background: team.accent, borderRadius: 3 * u, flexShrink: 0 }} />
+      <div style={{ display: "grid", gap: 14 * u }}>
+        <div style={{ fontFamily: DISPLAY, fontWeight: 850, fontSize: headSize, lineHeight: 0.95, letterSpacing: "0.005em" }}>{s.headline}</div>
+        <div style={{ fontSize: 26 * u, color: C.muted }}>
+          {team.name || s.team} vs {(teams[s.opp] ?? MISSING_TEAM).name || s.opp}
+        </div>
+      </div>
+    </div>
+  );
+  const detail = <div style={{ fontSize: (story ? 32 : 28) * u, lineHeight: 1.35, color: C.ink2, maxWidth: colW }}>{s.detail}</div>;
+  const figures = s.figures.length ? (
+    <div style={{ display: "grid", gridTemplateColumns: `repeat(${s.figures.length}, 1fr)`, gap: 20 * u, borderTop: `2px solid ${C.line}`, paddingTop: 24 * u }}>
+      {s.figures.map(([label, v]) => (
+        <div key={label} style={{ display: "grid", gap: 6 * u, alignContent: "start" }}>
+          <span style={{ fontSize: 22 * u, color: C.muted }}>{label}</span>
+          <span style={{ fontFamily: DISPLAY, fontWeight: 850, fontSize: fit(v, colW / 3, (story ? 120 : 100) * u, 0.5), lineHeight: 0.9, whiteSpace: "nowrap" }}>{v}</span>
+        </div>
+      ))}
+    </div>
+  ) : null;
+  const c = s.chart;
+  const chartW = landscape ? 860 * u : w - pad * 2;
+  const chart = c ? (
+    <div style={{ display: "grid", gap: 10 * u }}>
+      <span style={{ fontSize: 24 * u, color: C.ink2 }}>{c.label}</span>
+      <Columns
+        width={chartW}
+        height={(landscape ? 520 : story ? 520 : 330) * u}
+        font={20 * u}
+        diverging={c.diverging}
+        color={team.accent}
+        points={c.points.map((p) => ({
+          key: p.key,
+          label: monthDay(p.date),
+          value: p.value,
+          strong: p.strong,
+          title: `${monthDay(p.date)} vs ${p.opp}: ${c.stat === "net" ? signed(p.value) : statText(c.stat, p.value)} ${(STAT_LABEL[c.stat] ?? "net rating").toLowerCase()}`,
+        }))}
+        avg={c.avg}
+        avgLabel={c.avgLabel}
+      />
+    </div>
+  ) : null;
+  const also = s.also.length ? (
+    <div style={{ display: "grid", gap: 12 * u }}>
+      <span style={{ fontSize: 24 * u, color: C.ink2 }}>Also that night</span>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12 * u }}>
+        {s.also.slice(0, story ? 3 : 2).map((a) => (
+          <span key={a} style={{ border: `2px solid ${C.clock}`, color: C.ink, borderRadius: 999, padding: `${6 * u}px ${20 * u}px`, fontSize: 24 * u, fontWeight: 600 }}>
+            {a}
+          </span>
+        ))}
+      </div>
+    </div>
+  ) : null;
+  const stamp = `${monthDay(s.date)} ${s.team} vs ${s.opp}`;
+  if (landscape) {
+    return (
+      <Frame size={size} handle={handle} bands={[team]} stamp={stamp}>
+        <div style={{ position: "absolute", inset: `${56 * u}px ${pad}px ${32 * u}px`, display: "grid", gridTemplateColumns: `${colW}px 1fr`, gap: 72 * u }}>
+          <div style={{ display: "grid", alignContent: "space-between", gap: 24 * u }}>
+            {header}
+            {head}
+            {detail}
+            {figures}
+          </div>
+          <div style={{ display: "grid", alignContent: "center", gap: 40 * u }}>
+            {chart}
+            {also}
+          </div>
+        </div>
+      </Frame>
+    );
+  }
+  return (
+    <Frame size={size} handle={handle} bands={[team]} stamp={stamp}>
+      <div style={{ position: "absolute", inset: `${60 * u}px ${pad}px ${36 * u}px`, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 24 * u }}>
+        {header}
+        {head}
+        {detail}
+        {figures}
+        {chart}
+        {story || !chart ? also : null}
       </div>
     </Frame>
   );
