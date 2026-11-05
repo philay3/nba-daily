@@ -158,6 +158,23 @@ Short entries: the decision, why, and the trade-off. Newest at the bottom of eac
 - Why: it runs after the box-score engine's checks and cannot change the golden files. A missing file leaves the play-by-play tables as they were; a failure is recorded and the box scores still load. Its messages start with "play-by-play:", and the parity test checks only the engine's own warnings (the play-by-play tests pin the one known gap on the fixture day).
 - Trade-off: two sets of checks to read in `pipeline_runs`.
 
+## Power ratings and the model
+
+### Ridge regression on game efficiency, refit for every date
+- Why: opponent adjustment needs every team's schedule at once, and a ridge penalty gives the early-season shrinkage toward average for free. Fitting each date from the games before it gives the ratings history for the chart and the pregame ratings for the backtest in one pass, and makes look-ahead impossible by construction.
+- Trade-off: the season tables are rebuilt every run (under a second). The weights (7 games for teams, 100 for home court and the spread of results) are fixed in code, chosen on last season.
+
+### Home court and the spread of results start from typical values
+- Why: the task asks for about 2 and 12 points to start and to learn from this season. Both are prior-weighted averages: home court inside the regression, the spread from earlier games' misses.
+- Trade-off: with a weight of 100 games, early-season numbers lean on the priors on purpose.
+
+### ESPN's line for the backtest comes from the play-by-play
+- Why: our `odds` table only has the lines the daily job saw, from the day it started running. The play-by-play has ESPN's pregame spread for every game of the season. Upcoming games use the run's odds.
+- Trade-off: we do not know when ESPN took the spread (open or close). It is labeled "pregame".
+
+### Every prediction is stored, not just the backtest summary
+- Why: the Model page lists each game, and the game page shows the model's line and how it built it. One row per game is small.
+
 ## Web
 
 ### Any date this season, measured from the newest run

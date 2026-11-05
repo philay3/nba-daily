@@ -2,7 +2,7 @@
 
 Data and graphics for daily NBA videos and posts.
 
-A Python pipeline fills Postgres every morning with every regular-season box score so far (ESPN data through the hoopR mirror), team ratings and four factors with league ranks, player season stats and plus-minus, team-vs-team gap significance, player lines against their pre-game averages, every field goal attempt with its spot and zone, tonight's schedule, odds and injuries. From the season's play-by-play it adds the score after every basket, scoring runs, clutch-time stats, five-man lineups and each player's on/off ratings (raw plays are never stored). A Next.js app shows it as a daily feed, and a graphics studio exports post-ready PNGs.
+A Python pipeline fills Postgres every morning with every regular-season box score so far (ESPN data through the hoopR mirror), team ratings and four factors with league ranks, player season stats and plus-minus, team-vs-team gap significance, player lines against their pre-game averages, every field goal attempt with its spot and zone, tonight's schedule, odds and injuries. From the season's play-by-play it adds the score after every basket, scoring runs, clutch-time stats, five-man lineups and each player's on/off ratings (raw plays are never stored). Every morning it also fits opponent-adjusted power ratings, predicts the next 3 days of games, and grades the model against ESPN's pregame line for every game so far. A Next.js app shows it as a daily feed, and a graphics studio exports post-ready PNGs.
 
 | Path | What it is |
 | --- | --- |
