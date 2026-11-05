@@ -9,6 +9,7 @@
 - Games that left this season's schedule without being played are deleted (with their odds and previews).
 - Play-by-play tables (game flow, runs, lineups, on/off, clutch) are rebuilt for the season when the run has them.
 - Power ratings and the model's tables (daily ratings, predictions, backtest) are rebuilt for the season.
+- Stories and player baselines are rebuilt for the season.
 Running the same day twice leaves the database unchanged.
 """
 from __future__ import annotations
@@ -29,7 +30,7 @@ KEYS = {
     "player_games": ["game_id", "player_id"],
 }
 NO_UPDATED_AT = {"game_gaps", "player_game_deltas", "pipeline_runs", "odds", "injuries", "game_previews",
-                 "game_flow", "game_runs", "lineup_games"}
+                 "game_flow", "game_runs", "lineup_games", "stories", "player_baselines"}
 PBP_GAME_TABLES = ["game_flow", "game_runs", "lineup_games"]
 PBP_SEASON_TABLES = ["lineup_season", "player_on_off", "team_clutch", "player_clutch"]
 MODEL_TABLES = {"power_ratings": "ratings", "model_days": "days", "model_games": "games", "model_backtest": "backtest",
@@ -96,7 +97,7 @@ def load_shots(conn: psycopg.Connection, shots: ShotBuild | None, season: int) -
 
 def load_build(conn: psycopg.Connection, build: Build, odds: list[dict], injuries: list[dict],
                editorial: list[dict], previews: list[dict] | None = None, shots: ShotBuild | None = None,
-               pbp=None, model=None) -> dict[str, int]:
+               pbp=None, model=None, stories=None) -> dict[str, int]:
     """Write everything for one run. The caller owns the transaction."""
     season, day = build.season, build.today.isoformat()
     counts: dict[str, int] = {}
@@ -157,7 +158,23 @@ def load_build(conn: psycopg.Connection, build: Build, odds: list[dict], injurie
         for table, attr in MODEL_TABLES.items():
             conn.execute(f"DELETE FROM {_q(table)} WHERE season = %s", (season,))
             counts[table] = write_rows(conn, table, getattr(model, attr))
+
+    # stories: every night of the season, and the players' current baselines
+    if stories is not None:
+        conn.execute("DELETE FROM stories WHERE season = %s", (season,))
+        counts["stories"] = write_rows(conn, "stories", [story_row(s) for s in stories.stories])
+        conn.execute("DELETE FROM player_baselines WHERE season = %s", (season,))
+        counts["player_baselines"] = write_rows(conn, "player_baselines", stories.baselines)
     return counts
+
+
+STORY_COLUMNS = ["story_date", "rank", "story_id", "season", "kind", "subtype", "player_id", "team_code", "opp_code",
+                 "game_id", "headline", "detail", "value", "baseline", "sd", "z", "games", "rarity", "prominence",
+                 "score", "evidence"]
+
+
+def story_row(s: dict) -> dict:
+    return {c: Jsonb(s[c]) if c == "evidence" else s[c] for c in STORY_COLUMNS}
 
 
 def start_run(conn: psycopg.Connection, day: dt.date, season: int, command: str, args: dict) -> int:
