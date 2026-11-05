@@ -2,7 +2,7 @@
 
 Data and graphics for daily NBA videos and posts.
 
-A Python pipeline fills Postgres every morning with every regular-season box score so far (ESPN data through the hoopR mirror), team ratings and four factors with league ranks, player season stats and plus-minus, team-vs-team gap significance, player lines against their pre-game averages, every field goal attempt with its spot and zone, tonight's schedule, odds and injuries. From the season's play-by-play it adds the score after every basket, scoring runs, clutch-time stats, five-man lineups and each player's on/off ratings (raw plays are never stored). Every morning it also fits opponent-adjusted power ratings, predicts the next 3 days of games, and grades the model against ESPN's pregame line for every game so far. A Next.js app shows it as a daily feed, and a graphics studio exports post-ready PNGs.
+A Python pipeline fills Postgres every morning with every regular-season box score so far (ESPN data through the hoopR mirror), team ratings and four factors with league ranks, player season stats and plus-minus, team-vs-team gap significance, player lines against their pre-game averages, every field goal attempt with its spot and zone, tonight's schedule, odds and injuries, and ranked story ideas for every game night. From the season's play-by-play it adds the score after every basket, scoring runs, clutch-time stats, five-man lineups and each player's on/off ratings (raw plays are never stored). Every morning it also fits opponent-adjusted power ratings, predicts the next 3 days of games, and grades the model against ESPN's pregame line for every game so far. A Next.js app shows it as a daily feed, and a graphics studio exports post-ready PNGs.
 
 | Path | What it is |
 | --- | --- |
@@ -58,7 +58,8 @@ The `Makefile` wraps the same commands: `make db-up migrate seed web`, `make run
 - `/teams`, `/teams/[code]`: ratings and four factors on both ends, offense vs defense, net rating; shot profile on offense and defense; top five-man lineups, clutch time, every player's on/off ratings; team game log and roster.
 - `/players`, `/players/[id]`: sortable season table; the season's shot chart and zones; on/off and clutch time; player game log with points and plus-minus trends.
 - `/standings`, `/injuries`.
-- `/studio`: player game card, matchup preview, league offense vs defense, game recap, shot chart, game flow. Each exports a PNG at 1080x1350, 1080x1920 or 1920x1080.
+- `/stories`: story ideas from each night (outliers, streaks, firsts this season, rare lines, team swings), ranked by rarity and how big a role the player has, with filters for type, team and player. Each card shows its numbers and links to the game, the player's trend and the studio.
+- `/studio`: player game card, matchup preview, league offense vs defense, game recap, shot chart, game flow, model vs Vegas, story card. Each exports a PNG at 1080x1350, 1080x1920 or 1920x1080.
 
 ## Pipeline commands
 
@@ -73,7 +74,7 @@ The `Makefile` wraps the same commands: `make db-up migrate seed web`, `make run
 
 ## Screenshots
 
-`docs/screenshots/` has the Today and game pages at 1440 and 390 pixels wide, the Teams page, a team page (Lakers) and a player page (Luka Doncic), the shot chart sections of the game, team and player pages (`shots-*.png`), the studio editor, and every studio template at its export size (refresh them with `SCREENSHOTS=1 DATE=2026-11-02 GAME_ID=401909906 PLAYER_ID=3945274 NODE_PATH="$(npm root -g)" npm --prefix web run smoke`).
+`docs/screenshots/` has the Today and game pages at 1440 and 390 pixels wide, the Teams page, a team page (Lakers) and a player page (Luka Doncic), the shot chart sections of the game, team and player pages (`shots-*.png`), the Stories page at 1440 and 390, the studio editor, and every studio template at its export size (refresh them with `SCREENSHOTS=1 DATE=2026-11-02 GAME_ID=401909906 PLAYER_ID=3945274 NODE_PATH="$(npm root -g)" npm --prefix web run smoke`).
 
 ## Docs
 
