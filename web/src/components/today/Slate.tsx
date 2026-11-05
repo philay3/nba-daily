@@ -4,6 +4,7 @@ import { accentOf } from "@/components/ui/bits";
 import type { MissingRow, Team, TeamSeason, TonightGame } from "@/lib/data";
 import { offText } from "@/components/today/DayGames";
 import { f1, tipTime } from "@/lib/format";
+import { edgeText, lineText } from "@/lib/model";
 
 export function Slate({
   games,
@@ -28,6 +29,7 @@ export function Slate({
             <th className="sticky-col">Matchup</th>
             <th>Records</th>
             <th>Line</th>
+            <th>Model</th>
             <th>Win odds</th>
             <th className="r">Total</th>
             <th>Back-to-back</th>
@@ -61,6 +63,15 @@ export function Slate({
                 </td>
                 <td className="num text-ink-2">{ta && th ? `${ta.w}-${ta.l}, ${th.w}-${th.l}` : ""}</td>
                 <td className="num">{o?.line ?? <span className="text-muted">not posted</span>}</td>
+                <td className="num">
+                  {g.model ? (
+                    <Link href={`/games/${g.id}#model`} className="no-underline hover:underline" title={edgeText(g.model) ? `Model likes ${edgeText(g.model)} against the line` : undefined}>
+                      {lineText(g.home_code, g.away_code, g.model.pred_margin)}
+                    </Link>
+                  ) : (
+                    <span className="text-muted">{"–"}</span>
+                  )}
+                </td>
                 <td className="num">
                   {fav ? (
                     <span className="inline-flex items-center gap-2">

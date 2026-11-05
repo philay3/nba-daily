@@ -31,6 +31,11 @@ export type OnOff = typeof t.player_on_off.$inferSelect;
 export type TeamClutch = typeof t.team_clutch.$inferSelect;
 export type PlayerClutch = typeof t.player_clutch.$inferSelect;
 export type PlayerName = { id: number; name: string; short_name: string | null };
+export type PowerRating = typeof t.power_ratings.$inferSelect;
+export type ModelDay = typeof t.model_days.$inferSelect;
+export type ModelGame = typeof t.model_games.$inferSelect;
+export type ModelBacktest = typeof t.model_backtest.$inferSelect;
+export type ModelCalibration = typeof t.model_calibration.$inferSelect;
 
 export type BoxLine = PlayerGame & { delta: Delta | null };
 
@@ -187,6 +192,95 @@ export async function getGaps(gameIds: number[]): Promise<Gap[]> {
   return getDb().select().from(t.game_gaps).where(inArray(t.game_gaps.game_id, gameIds)).orderBy(asc(t.game_gaps.sort_order));
 }
 
+/* ------------------------------------------------------------------ power ratings and the model */
+
+export async function getModelGames(gameIds: number[]): Promise<Map<number, ModelGame>> {
+  if (!gameIds.length) return new Map();
+  const rows = await getDb().select().from(t.model_games).where(inArray(t.model_games.game_id, gameIds));
+  return new Map(rows.map((r) => [r.game_id, r]));
+}
+
+export async function getRatingsOn(season: number, asOf: string, teams?: string[]): Promise<PowerRating[]> {
+  const where = teams?.length
+    ? and(eq(t.power_ratings.season, season), eq(t.power_ratings.as_of, asOf), inArray(t.power_ratings.team_code, teams))
+    : and(eq(t.power_ratings.season, season), eq(t.power_ratings.as_of, asOf));
+  return getDb().select().from(t.power_ratings).where(where).orderBy(asc(t.power_ratings.net_rk), asc(t.power_ratings.team_code));
+}
+
+/** The newest ratings date of a season on or before `day` (the ratings as of that morning). */
+async function ratingsDate(season: number, day: string): Promise<string | null> {
+  const [row] = await getDb()
+    .select({ d: max(t.model_days.as_of) })
+    .from(t.model_days)
+    .where(and(eq(t.model_days.season, season), lte(t.model_days.as_of, day)));
+  if (row?.d) return row.d;
+  // a day before the first ratings: show the first ones
+  const [first] = await getDb().select({ d: sql<string>`min(${t.model_days.as_of})` }).from(t.model_days).where(eq(t.model_days.season, season));
+  return first?.d ?? null;
+}
+
+export type RatingPoint = { as_of: string; team_code: string; adj_net: number | null; net_rk: number | null };
+
+export async function getRatingsPage(day: string) {
+  const season = await seasonFor(day);
+  const teams = await getTeams();
+  const asOf = season ? await ratingsDate(season, day) : null;
+  if (!season || !asOf) return { season, teams, asOf, rows: [] as PowerRating[], history: [] as RatingPoint[], weekAgo: new Map<string, PowerRating>(), weekAgoDate: null as string | null, day: null as ModelDay | null };
+  const db = getDb();
+  const [rows, history, days] = await Promise.all([
+    getRatingsOn(season, asOf),
+    db
+      .select({ as_of: t.power_ratings.as_of, team_code: t.power_ratings.team_code, adj_net: t.power_ratings.adj_net, net_rk: t.power_ratings.net_rk })
+      .from(t.power_ratings)
+      .where(and(eq(t.power_ratings.season, season), lte(t.power_ratings.as_of, asOf)))
+      .orderBy(asc(t.power_ratings.as_of)),
+    db
+      .select()
+      .from(t.model_days)
+      .where(and(eq(t.model_days.season, season), lte(t.model_days.as_of, asOf)))
+      .orderBy(asc(t.model_days.as_of)),
+  ]);
+  // a week back: the newest ratings date at least 7 days before this one
+  const back = [...days].reverse().find((d) => daysBetween(d.as_of, asOf) >= 7);
+  const weekRows = back ? await getRatingsOn(season, back.as_of) : [];
+  return {
+    season,
+    teams,
+    asOf,
+    rows,
+    history,
+    weekAgo: new Map(weekRows.map((r) => [r.team_code, r])),
+    weekAgoDate: (back?.as_of ?? null) as string | null,
+    day: days[days.length - 1] ?? null,
+  };
+}
+
+export async function getModelPage(day: string) {
+  const season = await seasonFor(day);
+  const teams = await getTeams();
+  if (!season) return null;
+  const db = getDb();
+  const [bt, cal, days, games] = await Promise.all([
+    db.select().from(t.model_backtest).where(eq(t.model_backtest.season, season)).limit(1),
+    db.select().from(t.model_calibration).where(eq(t.model_calibration.season, season)).orderBy(asc(t.model_calibration.lo)),
+    db.select().from(t.model_days).where(eq(t.model_days.season, season)).orderBy(asc(t.model_days.as_of)),
+    db
+      .select()
+      .from(t.model_games)
+      .where(eq(t.model_games.season, season))
+      .orderBy(desc(t.model_games.game_date), asc(t.model_games.game_id)),
+  ]);
+  return {
+    season,
+    teams,
+    backtest: bt[0] ?? null,
+    calibration: cal,
+    days,
+    finals: games.filter((g) => g.actual_margin !== null),
+    upcoming: games.filter((g) => g.actual_margin === null).reverse(),
+  };
+}
+
 /* ------------------------------------------------------------------ shots */
 
 const shotPoint = { x: t.shots.x, y: t.shots.y, made: t.shots.made, zone: t.shots.zone, game_date: t.shots.game_date };
@@ -232,7 +326,7 @@ export function playerIndex(players: PlayerSeason[]): Map<string, PlayerSeason> 
 export const LOOKAHEAD_DAYS = 3;
 export const WEEK_DAYS = 7;
 
-export type TonightGame = Game & { odds: Odds | null; pick: Editorial | null; preview: Preview | null };
+export type TonightGame = Game & { odds: Odds | null; pick: Editorial | null; preview: Preview | null; model: ModelGame | null };
 export type Result = Game & { away_tg: TeamGame | null; home_tg: TeamGame | null; note: string };
 
 /**
@@ -291,12 +385,13 @@ export async function getToday(day: string) {
     mode === "past" ? getEditorial(addDays(day, 1)) : Promise.resolve([] as Editorial[]),
   ]);
   const ids = gamesRaw.map((g) => g.id);
-  const [teamSeason, players, range, oddsBy, previews] = await Promise.all([
+  const [teamSeason, players, range, oddsBy, previews, models] = await Promise.all([
     season ? getTeamSeason(season) : Promise.resolve([] as TeamSeason[]),
     season ? getPlayerSeason(season) : Promise.resolve([] as PlayerSeason[]),
     seasonRange(season),
     latestOdds(ids),
     mode === "preview" ? getPreviews(snap, ids) : Promise.resolve([] as Preview[]),
+    getModelGames(ids),
   ]);
   // past days show their own games' box scores; the look-ahead's first day shows last night's
   const boxIds = mode === "past" ? ids : lastRaw.map((g) => g.id);
@@ -311,6 +406,7 @@ export async function getToday(day: string) {
     odds: oddsBy.get(g.id) ?? null,
     pick: picks.get(g.code) ?? null,
     preview: previewBy.get(g.id) ?? null,
+    model: models.get(g.id) ?? null,
   }));
   const results = mode === "past" ? joinResults(gamesRaw, teamGames, dayNotes) : joinResults(lastRaw, teamGames, notes);
   const brief = editorial.filter((e) => e.kind === "date" || e.kind === "headline" || e.kind === "surprise");
@@ -350,7 +446,7 @@ export async function getWeek(from: string, latest: string | null): Promise<Week
     return {
       day,
       detailed: dayMode(day, latest) === "preview",
-      games: games.filter((g) => g.game_date === day).map((g) => ({ ...g, odds: odds.get(g.id) ?? null, pick: null, preview: null })),
+      games: games.filter((g) => g.game_date === day).map((g) => ({ ...g, odds: odds.get(g.id) ?? null, pick: null, preview: null, model: null })),
     };
   });
 }
@@ -361,7 +457,7 @@ export async function getGamePage(id: number) {
   const db = getDb();
   const [game] = await db.select().from(t.games).where(eq(t.games.id, id)).limit(1);
   if (!game) return null;
-  const [teams, teamGames, box, gaps, notes, odds, injuries, teamSeason, shots, zones, flow, runs] = await Promise.all([
+  const [teams, teamGames, box, gaps, notes, odds, injuries, teamSeason, shots, zones, flow, runs, models] = await Promise.all([
     getTeams(),
     getTeamGames([id]),
     getBoxLines([id]),
@@ -384,7 +480,10 @@ export async function getGamePage(id: number) {
     db.select().from(t.game_shot_zones).where(eq(t.game_shot_zones.game_id, id)),
     db.select().from(t.game_flow).where(eq(t.game_flow.game_id, id)).limit(1),
     db.select().from(t.game_runs).where(eq(t.game_runs.game_id, id)).orderBy(asc(t.game_runs.seq)),
+    getModelGames([id]),
   ]);
+  const model = models.get(id) ?? null;
+  const ratings = model ? await getRatingsOn(model.season, model.as_of, [game.away_code, game.home_code]) : [];
   const side = (code: string) => teamGames.find((r) => r.team_code === code) ?? null;
   return {
     game,
@@ -401,6 +500,8 @@ export async function getGamePage(id: number) {
     zones,
     flow: flow[0] ?? null,
     runs,
+    model,
+    ratings: new Map(ratings.map((r) => [r.team_code, r])),
   };
 }
 

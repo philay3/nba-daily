@@ -5,11 +5,11 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import * as t from "@/db/schema";
 import { teamAccent } from "@/lib/colors";
-import { dayMode, getToday, played, type TodayData } from "@/lib/data";
+import { dayMode, getModelGames, getToday, played, type TodayData } from "@/lib/data";
 import { periodLabel } from "@/lib/flow";
 import { addDays, tipTime } from "@/lib/format";
 import { fgPct, ZONES, zoneCounts } from "@/lib/shots";
-import type { StudioData, StudioFlow, StudioMatchup, StudioPlayerLine, StudioRecap, StudioShotChart, StudioTeam } from "@/lib/studio-types";
+import type { ModelSide, StudioData, StudioFlow, StudioMatchup, StudioModel, StudioPlayerLine, StudioRecap, StudioShotChart, StudioTeam } from "@/lib/studio-types";
 
 /** Everything the studio templates need for one date, as plain JSON. */
 export async function getStudioData(day: string): Promise<StudioData> {
@@ -203,7 +203,71 @@ export async function getStudioData(day: string): Promise<StudioData> {
 
   const shotCharts = await getShotCharts(d.lastNight.map((g) => g.id), d.season, lines, d.results);
 
-  return { day, yday: addDays(day, -1), season: d.season, teams, players, matchups, recaps, flows, league, shotCharts };
+  const models = await getStudioModels(d, days);
+
+  return { day, yday: addDays(day, -1), season: d.season, teams, players, matchups, recaps, flows, league, shotCharts, models };
+}
+
+/** Model vs ESPN cards: the games of the next 3 days first, then last night's with their results. */
+async function getStudioModels(d: TodayData, days: TodayData[]): Promise<StudioModel[]> {
+  const ahead = days.flatMap((dd) => dd.tonight.filter((g) => g.model && !OFF.has(g.status)));
+  const lastModels = await getModelGames(d.lastNight.map((g) => g.id));
+  const last = d.lastNight.filter((g) => lastModels.get(g.id)?.actual_margin != null);
+  const all = [...ahead.map((g) => ({ g, m: g.model!, odds: g.odds })), ...last.map((g) => ({ g, m: lastModels.get(g.id)!, odds: null }))];
+  if (!all.length || !d.season) return [];
+  const db = getDb();
+  const asOfs = [...new Set(all.map((x) => x.m.as_of))];
+  const [ratings, bt, lastOdds] = await Promise.all([
+    db.select().from(t.power_ratings).where(and(eq(t.power_ratings.season, d.season), inArray(t.power_ratings.as_of, asOfs))),
+    db.select().from(t.model_backtest).where(eq(t.model_backtest.season, d.season)).limit(1),
+    last.length ? db.select().from(t.odds).where(inArray(t.odds.game_id, last.map((g) => g.id))) : Promise.resolve([]),
+  ]);
+  const rk = new Map(ratings.map((r) => [`${r.as_of}|${r.team_code}`, r]));
+  const b = bt[0];
+  return all.map(({ g, m, odds }) => {
+    const o = odds ?? lastOdds.filter((x) => x.game_id === g.id).sort((a, z) => z.snapshot_date.localeCompare(a.snapshot_date))[0] ?? null;
+    const side = (code: string, rest: number | null): ModelSide => {
+      const r = rk.get(`${m.as_of}|${code}`);
+      const ts = d.teamSeason.get(code);
+      return {
+        w: ts?.w ?? 0,
+        l: ts?.l ?? 0,
+        adj_net: r?.adj_net ?? null,
+        net_rk: r?.net_rk ?? null,
+        adj_ortg: r?.adj_ortg ?? null,
+        ortg_rk: r?.ortg_rk ?? null,
+        adj_drtg: r?.adj_drtg ?? null,
+        drtg_rk: r?.drtg_rk ?? null,
+        b2b: rest === 0,
+      };
+    };
+    return {
+      key: String(g.id),
+      code: g.code,
+      game_id: g.id,
+      date: g.game_date,
+      time_et: tipTime(g),
+      tv: g.tv ?? "",
+      away: g.away_code,
+      home: g.home_code,
+      played: m.actual_margin !== null,
+      as_of: m.as_of,
+      fit_games: m.fit_games,
+      pred_margin: m.pred_margin,
+      home_wp: m.home_wp,
+      sigma: m.sigma,
+      home_court: m.home_court,
+      rest_adj: m.rest_adj,
+      line_margin: m.line_margin,
+      espn_away_wp: o?.away_wp ?? null,
+      espn_home_wp: o?.home_wp ?? null,
+      actual_margin: m.actual_margin,
+      ats: m.ats,
+      pick: m.pick,
+      sides: { [g.away_code]: side(g.away_code, m.away_rest), [g.home_code]: side(g.home_code, m.home_rest) },
+      season: b ? { games: b.games, line_games: b.line_games, model_mae: b.model_mae, line_mae: b.line_mae, ats_w: b.ats_w, ats_l: b.ats_l, ats_p: b.ats_p } : null,
+    };
+  });
 }
 
 /** Last night's shots for every player who took one and for both teams of each game, top scorers first. */

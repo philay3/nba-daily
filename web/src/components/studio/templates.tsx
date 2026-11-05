@@ -11,7 +11,8 @@ import { ShotChart } from "@/components/charts/ShotChart";
 import { duration } from "@/lib/flow";
 import { f1, longDate, monthDay, ordinal, signed } from "@/lib/format";
 import { COURT, ZONE_LABEL, type ZoneKey } from "@/lib/shots";
-import type { SizeKey, StudioFlow, StudioMatchup, StudioPlayerLine, StudioRecap, StudioShotChart, StudioTeam } from "@/lib/studio-types";
+import { atsWord, edgeText, lineText, winChances } from "@/lib/model";
+import type { ModelSide, SizeKey, StudioFlow, StudioMatchup, StudioModel, StudioPlayerLine, StudioRecap, StudioShotChart, StudioTeam } from "@/lib/studio-types";
 import { SIZES } from "@/lib/studio-types";
 
 const C = {
@@ -1013,6 +1014,168 @@ export function GameFlowCard({ f, teams, size, handle }: { f: StudioFlow; teams:
         {chart}
         {factRow}
         {runs}
+      </div>
+    </Frame>
+  );
+}
+
+/* ------------------------------------------------------------------ 7. model vs vegas */
+
+export function ModelCard({ m, teams, size, handle }: { m: StudioModel; teams: Record<string, StudioTeam>; size: SizeKey; handle: string }) {
+  const { w, h } = SIZES[size];
+  const landscape = w > h;
+  const story = size === "story";
+  const u = landscape ? h / 1080 : w / 1080;
+  const pad = 72 * u;
+  const A = teams[m.away] ?? MISSING_TEAM;
+  const H = teams[m.home] ?? MISSING_TEAM;
+  const a = m.sides[m.away];
+  const hm = m.sides[m.home];
+  const wc = winChances(m);
+  const edge = edgeText({ ...m, home_code: m.home, away_code: m.away });
+  const final = m.played && m.actual_margin !== null ? (m.actual_margin === 0 ? "Tied" : `${m.actual_margin > 0 ? m.home : m.away} won by ${Math.abs(m.actual_margin)}`) : null;
+  const pick = m.pick === "home" ? m.home : m.pick === "away" ? m.away : null;
+  const result = atsWord(m.ats);
+  const half = ((landscape ? 900 * u : w - pad * 2) - 8 * u) / 2;
+
+  const teamBlock = (t: StudioTeam, code: string, s: ModelSide, right: boolean) => (
+    <div style={{ display: "flex", flexDirection: right ? "row-reverse" : "row", alignItems: "center", gap: 20 * u, textAlign: right ? "right" : "left" }}>
+      <div style={{ width: 14 * u, alignSelf: "stretch", background: t.accent, borderRadius: 3 * u }} />
+      <div style={{ display: "grid", gap: 4 * u, justifyItems: right ? "end" : "start" }}>
+        <div style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: (landscape ? 120 : story ? 170 : 116) * u, lineHeight: 0.8 }}>{code}</div>
+        <div style={{ fontSize: 28 * u, fontWeight: 600 }}>{t.nickname}</div>
+        <div style={{ fontSize: 24 * u, color: C.ink2 }}>
+          {s.w}-{s.l}
+          {s.b2b ? ", back-to-back" : ""}
+        </div>
+      </div>
+    </div>
+  );
+  const bigLine = (label: string, text: string, strong: boolean) => (
+    <div style={{ display: "grid", gap: 6 * u, justifyItems: "center" }}>
+      <span style={{ fontSize: 26 * u, color: C.muted, fontWeight: 600 }}>{label}</span>
+      <span style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: (landscape ? 110 : story ? 120 : 100) * u, lineHeight: 0.9, color: strong ? C.ink : C.ink2 }}>{text}</span>
+    </div>
+  );
+  const lines = (
+    <div style={{ display: "grid", gap: 20 * u }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 2px 1fr", alignItems: "center", gap: 24 * u }}>
+        {bigLine("Our model", lineText(m.home, m.away, m.pred_margin), true)}
+        <div style={{ alignSelf: "stretch", background: C.line }} />
+        {bigLine("ESPN line", m.line_margin === null ? "Not posted" : lineText(m.home, m.away, m.line_margin), false)}
+      </div>
+      <div style={{ textAlign: "center", fontSize: 34 * u, fontWeight: 700, color: C.clock }}>
+        {final ? (
+          <>
+            {final}
+            {pick && result ? <span style={{ color: C.ink2, fontWeight: 600 }}>{`. Model pick ${pick}: ${result.toLowerCase()}`}</span> : null}
+          </>
+        ) : edge && edge !== "No edge" ? (
+          `Model likes ${edge} points against the line`
+        ) : m.line_margin === null ? (
+          "Line not posted yet"
+        ) : (
+          "Model and line agree"
+        )}
+      </div>
+    </div>
+  );
+  const chance = wc ? (
+    <div style={{ display: "grid", gap: 10 * u }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 28 * u, fontWeight: 700 }}>
+        <span>
+          {m.away} {wc.away.toFixed(1)}%
+        </span>
+        <span style={{ fontSize: 22 * u, color: C.muted, fontWeight: 600 }}>Model win chance</span>
+        <span>
+          {m.home} {wc.home.toFixed(1)}%
+        </span>
+      </div>
+      <div style={{ display: "flex", height: 18 * u, gap: 4 * u }}>
+        <div style={{ flexGrow: wc.away, background: A.accent, borderRadius: `${9 * u}px 0 0 ${9 * u}px`, opacity: wc.away >= wc.home ? 1 : 0.45 }} />
+        <div style={{ flexGrow: wc.home, background: H.accent, borderRadius: `0 ${9 * u}px ${9 * u}px 0`, opacity: wc.home > wc.away ? 1 : 0.45 }} />
+      </div>
+      {m.espn_away_wp != null && m.espn_home_wp != null ? (
+        <div style={{ fontSize: 22 * u, color: C.ink2, textAlign: "center" }}>
+          ESPN: {m.away} {m.espn_away_wp.toFixed(1)}%, {m.home} {m.espn_home_wp.toFixed(1)}%
+        </div>
+      ) : null}
+    </div>
+  ) : null;
+  const rows: [string, keyof ModelSide, keyof ModelSide, boolean][] = [
+    ["Adjusted net rating", "adj_net", "net_rk", true],
+    ["Adjusted offense", "adj_ortg", "ortg_rk", false],
+    ["Adjusted defense", "adj_drtg", "drtg_rk", false],
+  ];
+  const txt = (v: unknown, sgn: boolean) => (typeof v === "number" ? (sgn ? signed(v) : v.toFixed(1)) : "–");
+  const tape = (
+    <div style={{ display: "grid", gap: (story ? 36 : landscape ? 14 : 14) * u }}>
+      {rows.map(([label, k, rk, sgn]) => (
+        <TapeRow
+          key={label}
+          label={label}
+          a={a[k] as number | null}
+          h={hm[k] as number | null}
+          aRank={a[rk] as number | null}
+          hRank={hm[rk] as number | null}
+          aText={txt(a[k], sgn)}
+          hText={txt(hm[k], sgn)}
+          aColor={A.accent}
+          hColor={H.accent}
+          u={u}
+          half={half}
+        />
+      ))}
+    </div>
+  );
+  const s = m.season;
+  const foot = (
+    <div style={{ fontSize: 22 * u, color: C.muted, lineHeight: 1.3, borderTop: `2px solid ${C.line}`, paddingTop: 16 * u }}>
+      Ratings adjusted for opponents, from {m.fit_games} games before {monthDay(m.as_of)}.
+      {s && s.line_games ? ` Model this season: ${s.ats_w}-${s.ats_l}${s.ats_p ? `-${s.ats_p}` : ""} against the line in ${s.line_games} games.` : ""}
+    </div>
+  );
+  const header = (
+    <div style={{ display: landscape ? "flex" : "grid", justifyContent: "space-between", alignItems: "baseline", gap: 10 * u }}>
+      <Label u={u}>Model vs Vegas</Label>
+      <div style={{ fontSize: 26 * u, color: C.ink2 }}>{m.played ? `${longDate(m.date)}, final` : `${longDate(m.date)}, ${m.time_et} ET${m.tv ? `, ${m.tv}` : ""}`}</div>
+    </div>
+  );
+  const matchup = (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 24 * u }}>
+      {teamBlock(A, m.away, a, false)}
+      <span style={{ fontFamily: DISPLAY, fontSize: 56 * u, color: C.muted, fontWeight: 700 }}>at</span>
+      {teamBlock(H, m.home, hm, true)}
+    </div>
+  );
+  const stamp = `${monthDay(m.date)} ${m.away} at ${m.home}`;
+  if (landscape) {
+    return (
+      <Frame size={size} handle={handle} bands={[A, H]} stamp={stamp}>
+        <div style={{ position: "absolute", inset: `${44 * u}px ${pad}px ${24 * u}px`, display: "grid", gridTemplateRows: "auto auto 1fr auto", gap: 26 * u }}>
+          {header}
+          {matchup}
+          <div style={{ display: "grid", gridTemplateColumns: `1fr ${900 * u}px`, alignItems: "center", gap: 64 * u }}>
+            <div style={{ display: "grid", gap: 30 * u }}>
+              {lines}
+              {chance}
+            </div>
+            {tape}
+          </div>
+          {foot}
+        </div>
+      </Frame>
+    );
+  }
+  return (
+    <Frame size={size} handle={handle} bands={[A, H]} stamp={stamp}>
+      <div style={{ position: "absolute", inset: `${56 * u}px ${pad}px ${32 * u}px`, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 22 * u }}>
+        {header}
+        {matchup}
+        {lines}
+        {chance}
+        {tape}
+        {foot}
       </div>
     </Frame>
   );

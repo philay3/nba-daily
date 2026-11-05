@@ -761,6 +761,126 @@ export const player_clutch = pgTable(
   (t) => [primaryKey({ columns: [t.season, t.player_id, t.team_code] }), index("player_clutch_team_idx").on(t.season, t.team_code)],
 );
 
+/* ------------------------------------------------------------------ power ratings and the game model */
+
+/**
+ * Opponent-adjusted ratings per 100 possessions, one row per team for every date of the season: the ridge fit on
+ * the games played before that date (so the ratings a game was predicted with). Rebuilt for the season every run.
+ */
+export const power_ratings = pgTable(
+  "power_ratings",
+  {
+    season: int("season").notNull(),
+    as_of: date("as_of", { mode: "string" }).notNull(), // fit on games before this date
+    team_code: text("team_code")
+      .notNull()
+      .references(() => teams.code),
+    games: int("games").notNull(), // this team's games in the fit
+    adj_ortg: dbl("adj_ortg"), // points scored per 100 possessions against an average defense, on a neutral floor
+    adj_drtg: dbl("adj_drtg"), // points allowed per 100 against an average offense
+    adj_net: dbl("adj_net"), // adj_ortg - adj_drtg
+    ortg_rk: int("ortg_rk"), // 1 = best (highest)
+    drtg_rk: int("drtg_rk"), // 1 = best (lowest)
+    net_rk: int("net_rk"),
+    ortg: dbl("ortg"), // the same games without the adjustment
+    drtg: dbl("drtg"),
+    net: dbl("net"),
+    pace: dbl("pace"), // possessions per 48, pulled toward the league's (what projections use)
+  },
+  (t) => [primaryKey({ columns: [t.season, t.as_of, t.team_code] }), index("power_ratings_team_idx").on(t.season, t.team_code)],
+);
+
+/** League numbers behind each date's fit: average rating, home court and the spread of results the model uses. */
+export const model_days = pgTable(
+  "model_days",
+  {
+    season: int("season").notNull(),
+    as_of: date("as_of", { mode: "string" }).notNull(),
+    games: int("games").notNull(), // games in the fit
+    league_ortg: dbl("league_ortg"), // points per 100 possessions
+    home_court: dbl("home_court"), // points at the league's pace
+    sigma: dbl("sigma"), // spread of results around the predicted margin, points
+    sigma_games: int("sigma_games").notNull(), // this season's games behind sigma (it starts at 12 points)
+    pace: dbl("pace"),
+  },
+  (t) => [primaryKey({ columns: [t.season, t.as_of] })],
+);
+
+/**
+ * The model's prediction for every finished game (as of its date: games before it only) and for every game in
+ * the next 3 days (as of the run date), next to ESPN's line. Margins are home minus road.
+ */
+export const model_games = pgTable(
+  "model_games",
+  {
+    game_id: int("game_id")
+      .primaryKey()
+      .references(() => games.id, { onDelete: "cascade" }),
+    season: int("season").notNull(),
+    game_date: date("game_date", { mode: "string" }).notNull(),
+    as_of: date("as_of", { mode: "string" }).notNull(), // the ratings used: fit on games before this date
+    fit_games: int("fit_games").notNull(),
+    away_code: text("away_code")
+      .notNull()
+      .references(() => teams.code),
+    home_code: text("home_code")
+      .notNull()
+      .references(() => teams.code),
+    away_rest: int("away_rest"), // days of rest from the schedule, null for a first game
+    home_rest: int("home_rest"),
+    poss: dbl("poss"), // expected possessions
+    home_court: dbl("home_court"), // points of the margin from home court
+    rest_adj: dbl("rest_adj"), // points of the margin from back-to-backs (+ helps the home team)
+    pred_margin: dbl("pred_margin"), // predicted home margin
+    home_wp: dbl("home_wp"), // home win chance, 0-100
+    sigma: dbl("sigma"),
+    line_margin: dbl("line_margin"), // ESPN's line as the expected home margin (+ = home favored)
+    line_source: text("line_source"), // pbp (pregame spread in the play-by-play) | odds (this run's odds)
+    actual_margin: int("actual_margin"), // null until played
+    pick: text("pick"), // home | away: the side the model likes against the line
+    ats: text("ats"), // W | L | P for the pick, null without a pick or a result
+  },
+  (t) => [index("model_games_date_idx").on(t.season, t.game_date)],
+);
+
+/** Backtest of this season's finished games against ESPN's pregame line. Rebuilt every run. */
+export const model_backtest = pgTable("model_backtest", {
+  season: int("season").primaryKey(),
+  as_of: date("as_of", { mode: "string" }).notNull(),
+  games: int("games").notNull(), // finished games predicted
+  line_games: int("line_games").notNull(), // of those, games with an ESPN line
+  model_mae_all: dbl("model_mae_all"), // mean absolute error of the margin, all games
+  model_mae: dbl("model_mae"), // on games with a line
+  line_mae: dbl("line_mae"),
+  ats_w: int("ats_w").notNull(), // the model's record against the line
+  ats_l: int("ats_l").notNull(),
+  ats_p: int("ats_p").notNull(),
+  su_games: int("su_games").notNull(), // games where the model picked a winner
+  su_right: int("su_right").notNull(),
+  line_su_games: int("line_su_games").notNull(), // games where the line had a favorite
+  line_su_right: int("line_su_right").notNull(),
+  model_su_on_line_games: int("model_su_on_line_games").notNull(), // the model's winners right on those games
+  brier: dbl("brier"), // mean squared error of the win chance (0-1 scale)
+  home_court: dbl("home_court"), // as of the run date
+  sigma: dbl("sigma"),
+  updated_at: updatedAt(),
+});
+
+/** Calibration of the win chance: games binned by the favorite's chance, and how often the favorite won. */
+export const model_calibration = pgTable(
+  "model_calibration",
+  {
+    season: int("season").notNull(),
+    lo: int("lo").notNull(), // bin, favorite's win chance in percent: lo <= chance < hi
+    hi: int("hi").notNull(),
+    games: int("games").notNull(),
+    wins: int("wins").notNull(), // favorite won
+    mean_wp: dbl("mean_wp"),
+    win_pct: dbl("win_pct"),
+  },
+  (t) => [primaryKey({ columns: [t.season, t.lo] })],
+);
+
 /* ------------------------------------------------------------------ daily snapshots */
 
 export const injuries = pgTable(

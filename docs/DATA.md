@@ -173,7 +173,56 @@ Other gaps the run reports: a finished game whose play-by-play is not in the fil
 
 ### Fixture
 
-`pipeline/fixtures/hoopr_2026-11-02/play_by_play_2027.parquet` is the mirror's file as downloaded on 2026-11-03, cut to the games before 2026-11-02 (the same 92 as the box-score fixture) and to the columns the pipeline reads (`pbp.COLUMNS`, 23 of 68). A task that needs more columns (Task 4 wants `game_spread`, `home_favorite` and `home_team_spread`) should download the season file again, keep the same games and add its columns to `COLUMNS`.
+`pipeline/fixtures/hoopr_2026-11-02/play_by_play_2027.parquet` is the mirror's file as downloaded on 2026-11-03, cut to the games before 2026-11-02 (the same 92 as the box-score fixture) and to the columns the pipeline reads: the 23 in `pbp.COLUMNS`, plus the four game-level line columns the model reads (`game_spread`, `home_favorite`, `game_spread_available`, `home_team_spread`), which were added later from a fresh download of the same file, matched by game id. A task that needs more columns should do the same: download the season file again, keep the same games and add only its columns.
+
+## Power ratings and the model
+
+`pipeline/nba_pipeline/model.py` runs after the play-by-play step and writes five tables, all rebuilt for the season every run (about 5,000 rating rows and 1,300 prediction rows by the end of a season, well under 2 MB).
+
+| Table | One row per | What it holds |
+| --- | --- | --- |
+| `power_ratings` | season, date, team | Adjusted offense, defense and net per 100 possessions with ranks, from the games before that date; the raw numbers for the same games; the pace the projections use |
+| `model_days` | season, date | League average, home court and the spread of results the model used that day, and how many games each rests on |
+| `model_games` | game | The prediction for every finished game (as of its date) and every game in the next 3 days (as of the run date), ESPN's line, the result, and the pick against the line |
+| `model_backtest` | season | Average miss for the model and the line, record against the line, winners picked, Brier score |
+| `model_calibration` | season, bin | Games grouped by the favorite's win chance (50-60%, 60-70% and so on): average chance and how often the favorite won |
+
+### The fit
+
+- Each finished game gives two rows, one per team on offense, with its points per 100 possessions (the app's possession estimate): league average + that offense + the other defense, plus half of home court for the home team and minus half for the road team.
+- Ridge regression: each offense and defense is pulled toward 0 (the league average) as if the team had also played 7 average games, so early ratings sit near the middle and spread out as games add up. Home court is pulled toward 2 points (at the league's pace) with the weight of 100 games, so this season's games move it more as the sample grows.
+- A fit for date D uses only games before D. The run fits every game date of the season in order, adding each night's games to running sums, so a full season takes under a second.
+- 7 games came from last season: predicting each 2025-26 game from the games before it, weights of 4 to 7 games gave the lowest average miss (11.4 points), 10 to 14 gave 11.5, 20 gave 11.6 and 30 gave 11.7.
+
+### Projections
+
+- Expected possessions: home pace x road pace / league pace, where each team's pace is pulled toward the league's with the weight of 5 games.
+- Predicted home margin: (home adjusted net - road adjusted net + home court) x possessions / 100, then 1.5 points against a team on the second night of a back-to-back (from the schedule). Last season the model without the rest term was 2.9 points too high on home teams on a back-to-back (145 games) and 0.8 too low on road teams on one (156 games).
+- Win chance: a normal distribution around the margin. Its spread starts at 12 points and moves toward this season's misses (each game's actual margin minus its pregame prediction, games before D only) with the weight of 100 games. It ended 2025-26 at 14.4 points.
+- Games in the next 3 days use the run date's ratings, and the line from that run's odds when one is posted.
+
+### ESPN's line
+
+The play-by-play carries ESPN's pregame spread on every row of a game: `home_team_spread` is the expected home margin (positive when the home team is favored), `game_spread` its size, `home_favorite` the side and `game_spread_available` whether there is one. One value per game, the same on every row. Checks (in `pipeline/tests/test_model.py`):
+
+- Sign: ESPN's summary for 401909906 lists "LAL -3.5" with the Lakers at home, and the play-by-play has `home_team_spread` = 3.5.
+- In 2025-26, the sign of `home_team_spread` always matches `home_favorite` (1,234 games), and favorites won 69.5% of the time.
+- 4 games in 2025-26 have `game_spread_available` false; they have no line in the backtest. Every fixture game has one.
+
+### Backtest
+
+| | Fixture: 92 games before 2026-11-02 | 2025-26 regular season, 1,231 games |
+| --- | --- | --- |
+| Average miss, model | 12.7 points | 11.4 (on the 1,230 with a line) |
+| Average miss, ESPN's line | 11.2 | 10.8 |
+| Against the line | 46-46 | 580-638-12 (47.6%) |
+| Winners picked, model / line | 59 / 64 of 92 | 844 / 854 of 1,229 |
+| Brier score | 0.238 | 0.206 |
+| Home court, spread of results at the end | 2.0, 14.0 points | 1.7, 14.4 points |
+
+Calibration over 2025-26: favorites given 50-60% won 58.8% (488 games), 60-70% won 68.4% (370), 70-80% won 80.8% (261), 80-90% won 85.0% (107). The chances run a little low, since the spread of results is wide. The model is not better than the line; it is a transparent baseline to compare the line with.
+
+Each run checks that every finished game has a prediction and that no prediction used a game on or after its own date (errors, starting with "model:").
 
 ## Injury status rules
 
