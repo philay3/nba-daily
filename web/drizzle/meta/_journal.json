@@ -36,6 +36,13 @@
       "when": 1793863062236,
       "tag": "0004_power_ratings_model",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793864549102,
+      "tag": "0005_stories",
+      "breakpoints": true
     }
   ]
 }

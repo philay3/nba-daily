@@ -881,6 +881,74 @@ export const model_calibration = pgTable(
   (t) => [primaryKey({ columns: [t.season, t.lo] })],
 );
 
+/* ------------------------------------------------------------------ story finder, rebuilt every run */
+
+/**
+ * Each player's baselines from every game he played before the run date: season and last 10 games.
+ * One row per stat (pts, reb, ast, tpm, plus_minus, ts_pct). True shooting counts games with 5+ shooting attempts.
+ */
+export const player_baselines = pgTable(
+  "player_baselines",
+  {
+    season: int("season").notNull(),
+    player_id: bigint("player_id", { mode: "number" })
+      .notNull()
+      .references(() => players.id),
+    stat: text("stat").notNull(),
+    team_code: text("team_code")
+      .notNull()
+      .references(() => teams.code), // team in his latest game
+    as_of: date("as_of", { mode: "string" }).notNull(),
+    gp: int("gp").notNull(), // games in the season baseline
+    mean: dbl("mean"),
+    sd: dbl("sd"), // sample standard deviation, null with fewer than 2 games
+    l10_gp: int("l10_gp").notNull(),
+    l10_mean: dbl("l10_mean"),
+    l10_sd: dbl("l10_sd"),
+  },
+  (t) => [primaryKey({ columns: [t.season, t.player_id, t.stat] })],
+);
+
+/**
+ * The top 20 story ideas of each game night, ranked by score (rarity x prominence). Rebuilt for the whole season
+ * every run; a night's numbers use only games before it (docs/DATA.md, "Story finder").
+ */
+export const stories = pgTable(
+  "stories",
+  {
+    story_date: date("story_date", { mode: "string" }).notNull(), // the game night (America/New_York date)
+    rank: int("rank").notNull(), // 1 = best story of the night
+    story_id: text("story_id").notNull(), // kind:subtype:player or team:game
+    season: int("season").notNull(),
+    kind: text("kind").notNull(), // outlier | streak | first | rare | team
+    subtype: text("subtype").notNull(), // pts_high, pts20, 30_10_10, hot ...
+    player_id: bigint("player_id", { mode: "number" }).references(() => players.id), // null for team stories
+    team_code: text("team_code")
+      .notNull()
+      .references(() => teams.code),
+    opp_code: text("opp_code").notNull(),
+    game_id: int("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    headline: text("headline").notNull(),
+    detail: text("detail").notNull(),
+    value: dbl("value"), // the night's number (or streak length, or a team's recent net rating)
+    baseline: dbl("baseline"), // the average it is compared with
+    sd: dbl("sd"), // the spread used for z (floored, see DATA.md)
+    z: dbl("z"),
+    games: int("games"), // sample behind the baseline or rate
+    rarity: dbl("rarity").notNull(), // a z-score, or the z-score of a probability, capped at 5
+    prominence: dbl("prominence").notNull(), // 0 to 1: minutes and usage
+    score: dbl("score").notNull(), // rarity x (0.5 + prominence)
+    evidence: jsonb("evidence").notNull(), // the numbers behind the story
+  },
+  (t) => [
+    primaryKey({ columns: [t.story_date, t.rank] }),
+    index("stories_season_idx").on(t.season),
+    index("stories_player_idx").on(t.player_id),
+  ],
+);
+
 /* ------------------------------------------------------------------ daily snapshots */
 
 export const injuries = pgTable(
