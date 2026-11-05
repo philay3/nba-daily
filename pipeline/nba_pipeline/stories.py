@@ -75,13 +75,15 @@ FIRSTS = {
     "tpm5": ("tpm", 1, lambda r: r["tpm"] >= 5, "game with 5 or more threes", "tpm", 5),
 }
 
-# rare lines: key -> (test, phrase). Rarity comes from how often the league has done it this season.
+# rare lines: key -> (test, headline from the line). Rarity comes from how often the league has done it this season.
 RARE = {
-    "30_10_10": (lambda r: r["pts"] >= 30 and r["reb"] >= 10 and r["ast"] >= 10, "a 30-10-10 line"),
-    "20_20": (lambda r: r["pts"] >= 20 and r["reb"] >= 20, "a 20-20 game"),
-    "pts40": (lambda r: r["pts"] >= 40, "40 points"),
-    "td": (lambda r: _dd_count(r) >= 3, "a triple-double"),
-    "tpm8": (lambda r: r["tpm"] >= 8, "8 or more threes"),
+    "30_10_10": (lambda r: r["pts"] >= 30 and r["reb"] >= 10 and r["ast"] >= 10,
+                 lambda r: f"{r['name']} had a 30-10-10 line: {r['pts']}, {r['reb']} and {r['ast']}"),
+    "20_20": (lambda r: r["pts"] >= 20 and r["reb"] >= 20,
+              lambda r: f"{r['name']} had a 20-20 game: {r['pts']} points, {r['reb']} rebounds"),
+    "pts40": (lambda r: r["pts"] >= 40, lambda r: f"{r['name']} scored {r['pts']}"),
+    "td": (lambda r: _dd_count(r) >= 3, lambda r: f"{r['name']} had a triple-double"),
+    "tpm8": (lambda r: r["tpm"] >= 8, lambda r: f"{r['name']} made {r['tpm']} threes"),
 }
 
 _N = NormalDist()
@@ -444,7 +446,7 @@ def _box(g: dict) -> str:
 def _rare(ctx: dict, league_before: dict) -> list[dict]:
     g = ctx["g"]
     out = []
-    for key, (test, phrase) in RARE.items():
+    for key, (test, headline) in RARE.items():
         if not test(g):
             continue
         k, n = league_before.get("r:" + key, 0), league_before.get("games", 0)
@@ -453,7 +455,7 @@ def _rare(ctx: dict, league_before: dict) -> list[dict]:
         before = (f"The league had done it {times} in {n:,} player games this season before this night."
                   if k else f"Nobody had done it in {n:,} player games this season before this night.")
         ev = dict(event=key, league_count=k, league_games=n, p=round(p, 5), line=_line(g))
-        out.append(_story(ctx, "rare", key, f"{g['name']} had {phrase}", f"{before} {_box(g)}.",
+        out.append(_story(ctx, "rare", key, headline(g), f"{before} {_box(g)}.",
                           rarity_of_p(p), ev, games=n))
     return out
 

@@ -277,3 +277,28 @@ def test_baselines_match_player_season(fixture_build):
         assert r["l10_gp"] == min(10, r["gp"])
         if r["gp"] >= 2:
             assert r["sd"] is not None and not math.isnan(r["sd"])
+
+
+def test_team_swing_compares_last_games_with_the_ones_before():
+    """BOS lose their first 5 by 20, then win 5 by 20: last 5 against the 5 before, with the league's game spread."""
+    b = season({1: [dict(pts=10)] * 10})
+    for t in b.team_games:
+        n = t["game_id"] - 1000
+        sign = (1 if n >= 5 else -1) * (1 if t["team_code"] == "BOS" else -1)
+        t.update(net=20.0 * sign, pts=110 + 10 * sign, opp_pts=110 - 10 * sign, poss=100.0, win=sign > 0)
+    s = [x for x in found(b, "team") if x["team_code"] == "BOS" and x["game_id"] == 1009]
+    assert len(s) == 1 and s[0]["subtype"] == "hot"
+    ev = s[0]["evidence"]
+    assert ev["window"] == 5 and ev["last"] == dict(games=5, w=5, l=0, net=20.0) and ev["rest"]["net"] == -20.0
+    _, _, sd = st.baseline([t["net"] for t in b.team_games])
+    assert s[0]["z"] == pytest.approx(40 / (sd * math.sqrt(1 / 5 + 1 / 5)), abs=0.01)
+    assert "5-0 in the last 5" in s[0]["headline"]
+    # NYK, the mirror image, cooled off
+    assert [x["subtype"] for x in found(b, "team") if x["team_code"] == "NYK" and x["game_id"] == 1009] == ["cold"]
+
+
+def test_rare_headline_prints_the_real_numbers():
+    b = season({1: [dict(pts=10)] * 3 + [dict(pts=45, tpm=9, tpa=14)]})
+    heads = {x["subtype"]: x["headline"] for x in found(b, "rare")}
+    assert heads["pts40"] == "Player 1 scored 45"
+    assert heads["tpm8"] == "Player 1 made 9 threes"
