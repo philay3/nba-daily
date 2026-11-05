@@ -29,6 +29,13 @@
       "when": 1793748618258,
       "tag": "0003_play_by_play",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793863062236,
+      "tag": "0004_power_ratings_model",
+      "breakpoints": true
     }
   ]
 }
