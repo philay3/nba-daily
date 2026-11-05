@@ -37,7 +37,7 @@ if (SHOTS) mkdirSync(shotDir, { recursive: true });
 mkdirSync(exportDir, { recursive: true });
 
 const SIZES = { feed: [1080, 1350], story: [1080, 1920], youtube: [1920, 1080] };
-const TEMPLATES = ["player", "matchup", "league", "recap", "shots", "flow"];
+const TEMPLATES = ["player", "matchup", "league", "recap", "shots", "flow", "model"];
 const TEAM = process.env.TEAM || "LAL";
 const addDaysIso = (iso, n) => {
   const [y, m, d] = iso.split("-").map(Number);
@@ -119,6 +119,18 @@ if (gameHref) {
 // team and player pages carry the play-by-play sections (lineups, on/off, clutch): keep a screenshot of each
 const pageShots = { [`/teams/${TEAM}`]: "team-1440.png", [playerHref]: "player-1440.png" };
 // GSW has no lineup with 50 possessions on the seeded day: its page falls back to the most used units
+const modelShots = { "/ratings": "ratings-1440.png", "/model": "model-1440.png" };
+for (const path of ["/ratings", "/ratings?teams=BOS,NYK", "/model", "/model?all=1"]) {
+  const page = await open(withDate(path), { shot: modelShots[path] });
+  if (path === "/ratings" && (await page.locator("tbody tr").count()) !== 30 && DATE) failures.push(`${path}: expected 30 teams`);
+  await page.close();
+  await (await open(withDate(path), { width: 390, height: 844, shot: path === "/model" ? "model-390.png" : undefined })).close();
+}
+// the model's line on an upcoming game page and a played one
+if (DATE) {
+  await (await open("/games/401909933", { shot: "model-game-ahead-1440.png", clip: "#model" })).close();
+  await (await open("/games/401909903", { shot: "model-game-final-1440.png", clip: "#model" })).close();
+}
 for (const path of ["/teams", `/teams/${TEAM}`, "/teams/GSW", "/players", playerHref, "/standings", "/injuries", "/injuries?show=out", "/studio"]) {
   if (!path) continue;
   await (await open(withDate(path), { shot: pageShots[path] })).close();
@@ -166,6 +178,7 @@ const exportPlan = [
   ["recap", "feed"],
   ["shots", "story"],
   ["flow", "youtube"],
+  ["model", "feed"],
 ];
 for (const [t, size] of exportPlan) {
   const page = await open(withDate(`/studio?t=${t}&size=${size}`), { checkScroll: false });
