@@ -236,7 +236,7 @@ def _player_season_math(build: Build, errs: list[str]) -> None:
     pg = pd.DataFrame(build.player_games)
     if not len(ps) or not len(pg):
         return
-    p = pg[~pg.did_not_play.astype(bool) & (pd.to_numeric(pg["min"], errors="coerce").fillna(0) > 0)].copy()
+    p = pg[~pg.did_not_play.astype(bool)].copy()
     cols = ["min", "pts", "reb", "oreb", "ast", "stl", "blk", "tov", "pf", "fgm", "fga", "tpm", "tpa", "ftm", "fta",
             "plus_minus"]
     for c in cols:

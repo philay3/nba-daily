@@ -203,14 +203,14 @@ def box_players_rows(tables: dict) -> list[dict]:
         return (_tip_ts(g), g["id"], r["home_away"] != "away", r["box_order"])
     out = []
     for r in sorted((r for r in tables["player_games"] if r["game_id"] in have), key=key):
-        is_dnp = bool(r["did_not_play"]) or not (r["min"] or 0) > 0
+        is_dnp = bool(r["did_not_play"])
         reason = r.get("reason")
         row = dict(game_id=games[r["game_id"]]["code"], espn_id=r["game_id"], team=r["team_code"], opp=r["opp_code"],
                    player_id=r["player_id"], player=r["name"], pos=r["position"] or "", order=r["box_order"],
                    starter=bool(r["starter"]) and not is_dnp, dnp=is_dnp,
                    reason=(str(reason).strip().capitalize() if is_dnp and reason else ""))
         if not is_dnp:
-            row.update(min=int(r["min"]), pts=r["pts"], fg=f"{r['fgm']}-{r['fga']}", tp=f"{r['tpm']}-{r['tpa']}",
+            row.update(min=int(r["min"] or 0), pts=r["pts"], fg=f"{r['fgm']}-{r['fga']}", tp=f"{r['tpm']}-{r['tpa']}",
                        ft=f"{r['ftm']}-{r['fta']}", oreb=r["oreb"], dreb=r["dreb"], reb=r["reb"], ast=r["ast"],
                        stl=r["stl"], blk=r["blk"], tov=r["tov"], pf=r["pf"], pm=r["plus_minus"], ts_pct=r["ts_pct"])
             d = deltas.get((r["game_id"], r["player_id"]))

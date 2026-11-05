@@ -87,16 +87,25 @@ def test_ratings_rebuild_from_their_parts(tg):
 
 
 def test_zero_minute_players(build, tg):
-    """ESPN shows 0 minutes for under 30 seconds on the floor. Their plus-minus is needed for the sum to add up, but the
-    engine leaves them out of games played (docs/STATS.md, findings)."""
+    """ESPN shows 0 minutes for under 30 seconds on the floor. did_not_play alone decides who played, so these games
+    count in games played, season totals and pre-game averages, and the box score lists them with the bench
+    (docs/DECISIONS.md, docs/STATS.md findings)."""
     pg = pd.DataFrame(build.player_games)
     zero = pg[~pg.did_not_play & (pg["min"].fillna(0) == 0)]
     assert len(zero) == 8
     assert (tg.p_plus_minus == 5 * (tg.pts - tg.opp_pts)).all()
     ps = {r["player_id"]: r for r in build.player_season}
-    cryer = zero[zero.name == "LJ Cryer"].iloc[0]  # 1 assist in his 0 minutes
-    played = pg[(pg.player_id == cryer.player_id) & (pg["min"].fillna(0) > 0)]
-    assert ps[cryer.player_id]["gp"] == played.game_id.nunique()
+    played = pg[~pg.did_not_play & (pg.game_date < str(DAY))]
+    for pid, games in played.groupby("player_id"):
+        assert ps[pid]["gp"] == games.game_id.nunique()
+    deltas = {(d["game_id"], d["player_id"]) for d in build.player_game_deltas}
+    assert all((int(r.game_id), int(r.player_id)) in deltas for r in zero.itertuples())
+    cryer = zero[(zero.name == "LJ Cryer") & (zero.game_id == 401909285)].iloc[0]
+    assert (cryer.team_code, cryer.ast, cryer.plus_minus) == ("GSW", 1, 2)
+    # listed last on the bench, after the players with minutes
+    team = pg[(pg.game_id == cryer.game_id) & (pg.team_code == "GSW")].sort_values("box_order")
+    on = team[~team.did_not_play]
+    assert on.iloc[-1].player_id == cryer.player_id
 
 
 # ---- each check fires

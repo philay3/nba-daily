@@ -204,6 +204,7 @@ def test_usage_shares_add_up():
     tgs = {(t["game_id"], t["team_code"]): t for t in b.team_games}
     for key, gs in list(by_tg.items())[:40]:
         t = tgs[key]
+        gs = [g for g in gs if g["min"] > 0]  # usage is per minute on the floor: none for a 0-minute game
         total = sum(st.usage([g]) * g["min"] for g in gs) / t["minutes"]
         players_used = sum(g["fga"] + 0.44 * g["fta"] + g["tov"] for g in gs)
         assert total == pytest.approx(100 * players_used / (t["fga"] + 0.44 * t["fta"] + t["tov"]), rel=1e-6)

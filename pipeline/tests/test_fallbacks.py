@@ -111,7 +111,7 @@ def test_every_game_gets_gaps_and_deltas(season):
     finals = {r["game_id"] for r in build.team_games}
     assert {r["game_id"] for r in build.game_gaps} == finals
     played = pd.DataFrame(build.player_games)
-    played = played[~played.did_not_play & (played["min"].fillna(0) > 0)]
+    played = played[~played.did_not_play]
     assert len(build.player_game_deltas) == len(played)
 
 

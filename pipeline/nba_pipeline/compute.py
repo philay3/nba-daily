@@ -289,7 +289,8 @@ def compute(pb: pd.DataFrame, tb: pd.DataFrame, sc: pd.DataFrame, today: dt.date
         TS = TS.sort_values("net", ascending=False)
 
     # ---- player season (through last night)
-    P = pb[~pb.did_not_play.astype(bool) & (pb.minutes.fillna(0) > 0)].copy()
+    P = pb[~pb.did_not_play.astype(bool)].copy()
+    P["minutes"] = P.minutes.fillna(0)
     P["game_id"] = P.game_id.astype(int)
     P["athlete_id"] = P.athlete_id.astype(int)
     PS = pd.DataFrame()
@@ -326,14 +327,14 @@ def compute(pb: pd.DataFrame, tb: pd.DataFrame, sc: pd.DataFrame, today: dt.date
     Y = pb.copy()
     Y["game_id"] = Y.game_id.astype(int)
     for (gid, team), g in Y.groupby(["game_id", "team"], sort=False):
-        played = g[~g.did_not_play.astype(bool) & (g.minutes.fillna(0) > 0)]
+        played = g[~g.did_not_play.astype(bool)]
         order = list(played[played.starter.astype(bool)].index) + \
             list(played[~played.starter.astype(bool)].sort_values("minutes", ascending=False).index)
-        dnp = g[g.did_not_play.astype(bool) | (g.minutes.fillna(0) == 0)]
+        dnp = g[g.did_not_play.astype(bool)]
         for i, idx in enumerate(order + list(dnp.index)):
             r = g.loc[idx]
             pid = int(r.athlete_id)
-            is_dnp = bool(r.did_not_play) or not (num(r.minutes) or 0) > 0
+            is_dnp = bool(r.did_not_play)
             fgm, fga = num(r.field_goals_made), num(r.field_goals_attempted)
             tpm, tpa = num(r.three_point_field_goals_made), num(r.three_point_field_goals_attempted)
             ftm, fta = num(r.free_throws_made), num(r.free_throws_attempted)
@@ -354,7 +355,7 @@ def compute(pb: pd.DataFrame, tb: pd.DataFrame, sc: pd.DataFrame, today: dt.date
                 _dnp=is_dnp, _short=r.get("athlete_short_name"), _jersey=r.get("athlete_jersey")))
             if is_dnp:
                 continue
-            row = dict(min=int(r.minutes), pts=int(r.points), reb=int(r.rebounds), ast=int(r.assists), stl=int(r.steals),
+            row = dict(min=int(num(r.minutes) or 0), pts=int(r.points), reb=int(r.rebounds), ast=int(r.assists), stl=int(r.steals),
                        blk=int(r.blocks), pm=pm)
             d = dict(game_id=int(gid), player_id=pid, team_code=team, game_date=r.game_date, gp_before=0,
                      avg_min=None, avg_pts=None, avg_reb=None, avg_ast=None, avg_pm=None,

@@ -158,7 +158,7 @@ def _r2(x):
 
 
 def _played(r: dict) -> bool:
-    return not r["did_not_play"] and (r.get("min") or 0) > 0
+    return not r["did_not_play"]
 
 
 def _lines(build: Build) -> dict[int, list[dict]]:
@@ -170,7 +170,7 @@ def _lines(build: Build) -> dict[int, list[dict]]:
             continue
         used, length = team_used.get((r["game_id"], r["team_code"]), (None, None))
         line = dict(game_id=r["game_id"], date=r["game_date"], team=r["team_code"], opp=r["opp_code"],
-                    home=r["home_away"] == "home", name=r["name"], min=float(r["min"]),
+                    home=r["home_away"] == "home", name=r["name"], min=float(r["min"] or 0),
                     pts=r["pts"] or 0, reb=r["reb"] or 0, ast=r["ast"] or 0, stl=r["stl"] or 0, blk=r["blk"] or 0,
                     tov=r["tov"] or 0, fgm=r["fgm"] or 0, fga=r["fga"] or 0, tpm=r["tpm"] or 0, tpa=r["tpa"] or 0,
                     ftm=r["ftm"] or 0, fta=r["fta"] or 0, plus_minus=r["plus_minus"],

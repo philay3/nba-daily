@@ -14,7 +14,7 @@ pytestmark = pytest.mark.db
 
 EXPECTED_COUNTS = {
     "teams": 30, "players": 461, "games": 1200, "team_games": 184, "player_games": 2509, "team_season": 30,
-    "player_season": 442, "game_gaps": 2300, "player_game_deltas": 2072, "odds": 15, "injuries": 100, "editorial": 28,
+    "player_season": 442, "game_gaps": 2300, "player_game_deltas": 2080, "odds": 15, "injuries": 100, "editorial": 28,
     "game_previews": 29, "shots": 16255, "shot_games": 92, "league_shot_zones": 7, "team_shot_zones": 420,
     "player_shot_zones": 2996, "game_shot_zones": 1288, "game_flow": 92, "game_runs": 352, "lineup_games": 3429,
     "lineup_season": 2356, "player_on_off": 442, "team_clutch": 30, "player_clutch": 258, "power_ratings": 390,
