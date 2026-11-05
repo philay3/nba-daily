@@ -18,7 +18,7 @@ EXPECTED_COUNTS = {
     "game_previews": 29, "shots": 16255, "shot_games": 92, "league_shot_zones": 7, "team_shot_zones": 420,
     "player_shot_zones": 2996, "game_shot_zones": 1288, "game_flow": 92, "game_runs": 352, "lineup_games": 3429,
     "lineup_season": 2356, "player_on_off": 442, "team_clutch": 30, "player_clutch": 258, "power_ratings": 390,
-    "model_days": 13, "model_games": 121, "model_backtest": 1, "model_calibration": 5,
+    "model_days": 13, "model_games": 121, "model_backtest": 1, "model_calibration": 5, "stories": 154, "player_baselines": 2652,
 }
 
 
@@ -222,6 +222,30 @@ def test_shot_loader_rewrites_only_changed_games(seeded_db):
             # no shot file: the shot tables stay as they are
             assert load_shots(c, build_shots(None, build), 2027) == {}
             assert one(c, "SELECT count(*) AS n FROM shots")["n"] == 16254
+
+
+def test_stories_point_at_real_lines(conn):
+    """Every player story's game is one he played, and its stored line is that box score line."""
+    bad = conn.execute("""
+        SELECT s.story_id FROM stories s
+        LEFT JOIN player_games pg ON pg.game_id = s.game_id AND pg.player_id = s.player_id
+        WHERE s.player_id IS NOT NULL AND (pg.player_id IS NULL OR pg.did_not_play
+              OR (s.evidence ? 'line' AND (s.evidence->'line'->>'pts')::int <> pg.pts))""").fetchall()
+    assert bad == []
+    bad = conn.execute("""
+        SELECT s.story_id FROM stories s LEFT JOIN team_games tg ON tg.game_id = s.game_id AND tg.team_code = s.team_code
+        WHERE tg.game_id IS NULL OR s.story_date <> tg.game_date""").fetchall()
+    assert bad == []
+
+
+def test_stories_are_ranked_by_score(conn):
+    rows = conn.execute("SELECT story_date, rank, score FROM stories ORDER BY story_date, rank").fetchall()
+    by_night = {}
+    for r in rows:
+        by_night.setdefault(r["story_date"], []).append(r)
+    for night, rs in by_night.items():
+        assert [r["rank"] for r in rs] == list(range(1, len(rs) + 1)) and len(rs) <= 20, night
+        assert all(a["score"] >= b["score"] for a, b in zip(rs, rs[1:])), night
 
 
 def test_official_seeds_applied(conn):
