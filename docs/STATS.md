@@ -94,7 +94,7 @@ One row per player per game, including players who did not play.
 | `did_not_play` | ESPN marks him as not playing | ESPN `didNotPlay` | none |
 | `reason` | ESPN's reason for not playing, as written | ESPN `reason` | none |
 | `ejected` | Ejected | ESPN `ejected` | none |
-| `box_order` | Starters, then bench by minutes, then players who did not play or show 0 minutes | Computed | none |
+| `box_order` | Starters, then bench by minutes (players at 0 minutes last), then players who did not play | Computed | none |
 | `min` | Minutes, rounded to a whole number by ESPN. 0 means under 30 seconds, not "did not play" | ESPN `minutes` "MIN" | none |
 | `pts` | Points | ESPN `points` "PTS" | higher |
 | `fgm` | Field goals made | ESPN `fieldGoalsMade` "FG" | higher |
@@ -177,7 +177,7 @@ One row per team, rebuilt every run from the season's `team_games` before the ru
 
 ## player_season
 
-One row per player who has played, rebuilt every run from `player_games` before the run date. Only games with more than 0 minutes count (see the findings). Per-game stats divide by games played; percentages divide season totals. No ranks.
+One row per player who has played, rebuilt every run from `player_games` before the run date. Every game with `did_not_play` false counts, including 0 minutes (see the findings). Per-game stats divide by games played; percentages divide season totals. No ranks.
 
 | Column | Definition | Source | Better |
 | --- | --- | --- | --- |
@@ -187,7 +187,7 @@ One row per player who has played, rebuilt every run from `player_games` before 
 | `as_of` | Run date; the row covers games before it | Run | none |
 | `name` | Name in his latest box score | ESPN | none |
 | `position` | Position in his latest box score | ESPN | none |
-| `gp` | Games played (more than 0 minutes) | Computed | none |
+| `gp` | Games played (`did_not_play` false, even at 0 minutes) | Computed | none |
 | `gs` | Games started | Computed | none |
 | `mpg` | Minutes per game | Computed | none |
 | `ppg` | Points per game | Computed | higher |
@@ -300,9 +300,9 @@ Checked once, against independent sources, in `pipeline/tests/test_stats.py` (no
 
 ## Findings
 
-What the audit turned up on the fixture season. None of these changes a stored number today.
+What the audit turned up on the fixture season. The first one is fixed; the rest are kept as they are.
 
-1. **Players at 0 minutes count as "did not play".** ESPN rounds minutes, so a player on the floor for under 30 seconds shows 0. The engine (`minutes > 0`) then leaves that game out of his games played and season totals, and the box score lists him with the players who did not play. On the fixture season that is 8 player-games, with 1 assist, 1 field goal attempt and non-zero plus-minus in 3 of them. Team totals are not affected (they come from ESPN's team box). Risk: if one of these players ever scores, the engine's "player points do not add up to the team score" check would fail the run. Fixing it changes the golden files, so it is left for a separate change.
+1. **Players at 0 minutes counted as "did not play". Fixed.** ESPN rounds minutes, so a player on the floor for under 30 seconds shows 0. The engine used `minutes > 0` as "played", which left that game out of his games played, season totals and pre-game averages, and the box score listed him with the players who did not play. On the fixture season that is 8 player-games, with 1 assist, 1 field goal attempt and non-zero plus-minus in 3 of them. Team totals were not affected (they come from ESPN's team box). If one of these players had scored, the engine's "player points do not add up to the team score" check would have failed the run. Now `did_not_play` alone decides who played, and the box score shows these players on the bench with 0 minutes (docs/DECISIONS.md).
 2. **Free throw rate is FTM / FGA,** not FTA / FGA. It is labeled that way on the site, but the numbers will not match Basketball-Reference's "FTr". This is the engine's choice and is kept.
 3. **Free throw attempts have a better side in game gaps; field goal and three attempts do not.** Getting to the line is a good thing (free throws are the most efficient shot), so this is kept, but it is a judgment call.
 4. **Team turnovers include team turnovers; player turnovers do not.** A team's turnovers can be 1 to 3 more than its players' (97 of 184 team-games on the fixture). Possessions and turnover % need the team figure, so this is right, but a box score total row should not be read as the sum of the player rows.
