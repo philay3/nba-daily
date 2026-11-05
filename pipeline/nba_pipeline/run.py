@@ -8,6 +8,7 @@ import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from nba_pipeline.audit import stat_checks
 from nba_pipeline.checks import run_checks
 from nba_pipeline.compute import Build, Fill, compute
 from nba_pipeline.config import FIXTURES_DIR, season_for
@@ -252,6 +253,9 @@ def _run(result: RunResult, date: dt.date, season: int, source_dir: Path | None,
     result.errors, result.warnings = run_checks(result.files, inputs.sr_standings,
                                                 editorial_supplied=provider.name != "none")
     errs, warns = check_previews(build, result.previews, result.odds)
+    result.errors += errs
+    result.warnings += warns
+    errs, warns = stat_checks(build)  # the stat audit: totals add up and every rate rebuilds (docs/STATS.md)
     result.errors += errs
     result.warnings += warns
     # shots are optional: a missing or unreadable file, or a game without shots, is a warning, and the box scores
