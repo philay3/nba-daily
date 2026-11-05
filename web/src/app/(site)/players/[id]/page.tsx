@@ -151,7 +151,7 @@ export default async function PlayerPage({ params, searchParams }: { params: Par
   const team = teams.get(row?.team_code ?? player.team_code ?? "");
   const asOf = zones[0]?.as_of;
   const fga = log.filter(({ g }) => !asOf || g.game_date < asOf).reduce((n, { pg }) => n + (pg.fga ?? 0), 0);
-  const games = log.filter(({ pg }) => !pg.did_not_play && (pg.min ?? 0) > 0);
+  const games = log.filter(({ pg }) => !pg.did_not_play);
   const maxAbs = Math.max(1, ...games.map(({ pg }) => Math.abs(pg.plus_minus ?? 0)));
   return (
     <div className="grid grid-cols-1 gap-12 pt-6 sm:pt-8">
@@ -278,7 +278,7 @@ export default async function PlayerPage({ params, searchParams }: { params: Par
             </thead>
             <tbody>
               {[...log].reverse().map(({ pg, d, g }) => {
-                const dnp = pg.did_not_play || !((pg.min ?? 0) > 0);
+                const dnp = pg.did_not_play;
                 const won = g.winner_code === pg.team_code;
                 const us = pg.home_away === "home" ? g.home_score : g.away_score;
                 const them = pg.home_away === "home" ? g.away_score : g.home_score;

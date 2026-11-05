@@ -292,7 +292,8 @@ const before = <T extends { game_date: string }>(rows: T[], asOf: string | undef
 
 /* ------------------------------------------------------------------ derived */
 
-export const played = (b: PlayerGame) => !b.did_not_play && (b.min ?? 0) > 0;
+/** ESPN rounds minutes, so 0 means under 30 seconds on the floor: did_not_play alone decides. */
+export const played = (b: Pick<PlayerGame, "did_not_play">) => !b.did_not_play;
 
 export type MissingRow = { team: string; ppg: number; mpg: number; out: number };
 
@@ -737,7 +738,6 @@ export async function storyLogs(season: number, ids: number[], through: string):
         eq(t.games.season, season),
         lte(t.player_games.game_date, through),
         eq(t.player_games.did_not_play, false),
-        sql`${t.player_games.min} > 0`,
       ),
     )
     .orderBy(asc(t.player_games.game_date), asc(t.player_games.game_id));

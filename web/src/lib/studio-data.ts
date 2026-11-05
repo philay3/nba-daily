@@ -42,7 +42,7 @@ export async function getStudioData(day: string): Promise<StudioData> {
     : [];
   const trend = new Map<number, { date: string; pts: number; pm: number | null }[]>();
   for (const r of trendRows) {
-    if (r.dnp || !((r.min ?? 0) > 0) || r.game_date > d.yday) continue;
+    if (r.dnp || r.game_date > d.yday) continue;
     const list = trend.get(r.player_id) ?? [];
     list.push({ date: r.game_date, pts: r.pts ?? 0, pm: r.pm });
     trend.set(r.player_id, list);
