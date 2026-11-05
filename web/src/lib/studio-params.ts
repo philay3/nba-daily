@@ -17,6 +17,7 @@ export function selectionFromSearch(sp: StudioSearch): StudioSelection {
     recap: template === "recap" ? sp.game : undefined,
     shot: template === "shots" ? sp.shot : undefined,
     flow: template === "flow" ? sp.game : undefined,
+    model: template === "model" ? sp.game : undefined,
     highlight: sp.teams ? sp.teams.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean).slice(0, 2) : undefined,
   };
 }

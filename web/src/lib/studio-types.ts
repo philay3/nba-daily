@@ -169,6 +169,46 @@ export type StudioFlow = {
   runs: StudioFlowRun[];
 };
 
+export type ModelSide = {
+  w: number;
+  l: number;
+  adj_net: number | null;
+  net_rk: number | null;
+  adj_ortg: number | null;
+  ortg_rk: number | null;
+  adj_drtg: number | null;
+  drtg_rk: number | null;
+  b2b: boolean; // second night of a back-to-back
+};
+
+/** The model's line next to ESPN's for one game: the next 3 days, or last night's with the result. */
+export type StudioModel = {
+  key: string; // game id
+  code: string;
+  game_id: number;
+  date: string;
+  time_et: string;
+  tv: string;
+  away: string;
+  home: string;
+  played: boolean;
+  as_of: string; // ratings date
+  fit_games: number;
+  pred_margin: number | null; // home minus road
+  home_wp: number | null;
+  sigma: number | null;
+  home_court: number | null;
+  rest_adj: number | null;
+  line_margin: number | null;
+  espn_away_wp: number | null;
+  espn_home_wp: number | null;
+  actual_margin: number | null;
+  ats: string | null;
+  pick: string | null;
+  sides: Record<string, ModelSide>;
+  season: { games: number; line_games: number; model_mae: number | null; line_mae: number | null; ats_w: number; ats_l: number; ats_p: number } | null;
+};
+
 export type StudioData = {
   day: string;
   yday: string;
@@ -180,6 +220,7 @@ export type StudioData = {
   flows: StudioFlow[];
   league: ScatterTeam[];
   shotCharts: StudioShotChart[];
+  models: StudioModel[];
 };
 
 export const SIZES = {
@@ -197,6 +238,7 @@ export const TEMPLATES = {
   recap: "Game recap",
   shots: "Shot chart",
   flow: "Game flow",
+  model: "Model vs Vegas",
 } as const;
 
 export type TemplateKey = keyof typeof TEMPLATES;
@@ -210,5 +252,6 @@ export type StudioSelection = {
   recap?: string; // game code
   shot?: string; // StudioShotChart.key
   flow?: string; // game code
+  model?: string; // game id
   highlight?: string[]; // team codes
 };

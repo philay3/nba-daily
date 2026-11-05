@@ -175,6 +175,25 @@ export function Studio({ data, initial }: { data: StudioData; initial: StudioSel
             </select>
           </label>
         ) : null}
+        {sel.template === "model" && data.models.length ? (
+          <label className="grid gap-1.5 text-[13px] font-semibold text-ink-2">
+            Game
+            <select className={field} value={sel.model} onChange={(e) => set({ model: e.target.value })}>
+              {[...new Set(data.models.map((m) => m.date))].map((d) => (
+                <optgroup key={d} label={`${shortDay(d)}${data.models.find((m) => m.date === d)?.played ? ", final" : ""}`}>
+                  {data.models
+                    .filter((m) => m.date === d)
+                    .map((m) => (
+                      <option key={m.key} value={m.key}>
+                        {m.away} at {m.home}
+                        {m.played ? "" : `, ${m.time_et}`}
+                      </option>
+                    ))}
+                </optgroup>
+              ))}
+            </select>
+          </label>
+        ) : null}
         {sel.template === "league" ? (
           <div className="grid grid-cols-2 gap-2">
             {[0, 1].map((i) => (
